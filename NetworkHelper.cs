@@ -128,7 +128,15 @@ namespace UTransfer
 
                         if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
                         {
-                            string savePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "fichiers_recus", fileName);
+                            string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "fichiers_recus");
+
+                            // Vérifier et créer le dossier "fichiers_recus" s'il n'existe pas
+                            if (!Directory.Exists(saveFolderPath))
+                            {
+                                Directory.CreateDirectory(saveFolderPath);
+                            }
+
+                            string savePath = Path.Combine(saveFolderPath, fileName);
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
                                 byte[] buffer = new byte[1024];

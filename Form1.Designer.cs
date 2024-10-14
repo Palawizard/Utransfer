@@ -59,6 +59,8 @@
             Controls.Add(buttonArreter);
             Controls.Add(buttonRecevoir);
             Controls.Add(buttonEnvoyer);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
             Name = "Form1";
             Text = "UTransfer";
             Load += Form1_Load;
