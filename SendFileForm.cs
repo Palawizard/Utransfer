@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 using System.Diagnostics;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace UTransfer
 {
@@ -26,7 +27,13 @@ namespace UTransfer
             if (!string.IsNullOrEmpty(ipAddress) && !string.IsNullOrEmpty(filePath))
             {
                 Debug.WriteLine($"Envoi du fichier {filePath} à {ipAddress}");
-                NetworkHelper.SendFile(ipAddress, filePath);  // Appelle la méthode d'envoi dans NetworkHelper
+
+                // Réinitialiser la barre de progression avant l'envoi
+                progressBar.Value = 0;
+                lblSpeed.Text = "Vitesse : 0 kB/s";
+
+                // Appelle la méthode d'envoi dans NetworkHelper en passant la ProgressBar et le Label
+                NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed);
             }
             else
             {

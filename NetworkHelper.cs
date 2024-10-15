@@ -13,8 +13,8 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
 
-        // Méthode pour envoyer un fichier à une adresse IP spécifiée
-        public static void SendFile(string ipAddress, string filePath)
+        // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
+        public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed)
         {
             try
             {
@@ -43,9 +43,28 @@ namespace UTransfer
                         using (FileStream fs = File.OpenRead(filePath))
                         {
                             int bytesRead;
+                            long totalBytesSent = 0;
+                            Stopwatch stopwatch = new Stopwatch();
+                            stopwatch.Start();
+
+                            // Initialiser la barre de progression
+                            progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024))); // Taille en ko
+
                             while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
                             {
                                 stream.Write(buffer, 0, bytesRead);
+                                totalBytesSent += bytesRead;
+
+                                // Mise à jour de la barre de progression
+                                progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
+
+                                // Calculer la vitesse
+                                double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                                if (elapsedSeconds > 0)
+                                {
+                                    double speed = totalBytesSent / 1024.0 / elapsedSeconds; // en ko/s
+                                    lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} kB/s"));
+                                }
                             }
                         }
 
@@ -75,7 +94,7 @@ namespace UTransfer
         {
             if (!isServerRunning)
             {
-                serverThread = new Thread(new ThreadStart(ReceiveFile));
+                serverThread = new Thread(new ThreadStart(ReceiveFileInThread));
                 serverThread.IsBackground = true;
                 serverThread.Start();
                 isServerRunning = true;
@@ -104,8 +123,8 @@ namespace UTransfer
             }
         }
 
-        // Méthode pour recevoir un fichier
-        public static void ReceiveFile()
+        // Méthode pour recevoir un fichier avec une ProgressBar et un Label de vitesse
+        public static void ReceiveFile(ProgressBar progressBar, Label lblSpeed)
         {
             try
             {
@@ -142,6 +161,12 @@ namespace UTransfer
                                 byte[] buffer = new byte[1024];
                                 long totalBytesReceived = 0;
 
+                                Stopwatch stopwatch = new Stopwatch();
+                                stopwatch.Start();
+
+                                // Initialiser la barre de progression
+                                progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
+
                                 while (totalBytesReceived < fileSize)
                                 {
                                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
@@ -151,6 +176,17 @@ namespace UTransfer
                                     }
                                     fs.Write(buffer, 0, bytesRead);
                                     totalBytesReceived += bytesRead;
+
+                                    // Mise à jour de la barre de progression
+                                    progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesReceived / 1024)));
+
+                                    // Calculer la vitesse
+                                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                                    if (elapsedSeconds > 0)
+                                    {
+                                        double speed = totalBytesReceived / 1024.0 / elapsedSeconds; // en ko/s
+                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} kB/s"));
+                                    }
                                 }
                             }
 
@@ -177,6 +213,12 @@ namespace UTransfer
                 Debug.WriteLine($"Erreur lors de la réception : {ex.Message}");
                 MessageBox.Show("Erreur lors de la réception : " + ex.Message);
             }
+        }
+
+        // Méthode pour gérer le thread de réception
+        private static void ReceiveFileInThread()
+        {
+            // Vous pouvez utiliser cette méthode pour démarrer le serveur dans un thread sans paramètres supplémentaires.
         }
     }
 }
