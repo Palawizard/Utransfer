@@ -14,7 +14,7 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
         private static bool isTransferCancelled = false;
-        private const int BufferSize = 262144; // Augmenté à 256 Ko
+        private const int BufferSize = 524288; // Augmenté à 512 Ko
 
         // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
         public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
@@ -31,11 +31,8 @@ namespace UTransfer
 
                 using (TcpClient client = new TcpClient())
                 {
-                    client.NoDelay = true;  // Désactive l'algorithme de Nagle
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);  // Active KeepAlive
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, BufferSize); // Ajuste la taille du tampon d'envoi
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, BufferSize); // Ajuste la taille du tampon de réception
-                    client.LingerState = new LingerOption(true, 10);  // Fermeture douce de la connexion
+                    client.NoDelay = true;  // Désactive l'algorithme de Nagle pour une meilleure performance
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); // Active KeepAlive
                     client.Connect(ipAddress, 5001);  // Connexion au serveur
 
                     using (NetworkStream stream = client.GetStream())
@@ -51,7 +48,7 @@ namespace UTransfer
                         stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
                         stream.Write(fileNameBytes, 0, fileNameBytes.Length);
 
-                        byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 256 Ko
+                        byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 512 Ko
                         using (FileStream fs = File.OpenRead(filePath))
                         {
                             int bytesRead;
@@ -157,7 +154,6 @@ namespace UTransfer
                         stream.Read(fileNameBytes, 0, fileNameBytes.Length);
                         string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0'); // Enlever les caractères nuls
 
-                        // Supprimer les caractères non valides dans le nom du fichier
                         fileName = fileName.Replace("\0", "").Replace(":", "").Replace("\\", "").Replace("/", "");
 
                         if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
@@ -172,7 +168,7 @@ namespace UTransfer
                             string savePath = Path.Combine(saveFolderPath, fileName);
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
-                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 256 Ko
+                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 512 Ko
                                 long totalBytesReceived = 0;
 
                                 Stopwatch stopwatch = new Stopwatch();
