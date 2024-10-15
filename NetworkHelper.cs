@@ -65,6 +65,7 @@ namespace UTransfer
                                     byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");
                                     stream.Write(cancelMessage, 0, cancelMessage.Length);
                                     MessageBox.Show("Transfert annulé.");
+                                    ResetProgressBar(progressBar, lblSpeed);
                                     return;
                                 }
 
@@ -83,6 +84,7 @@ namespace UTransfer
                         }
 
                         MessageBox.Show("Fichier envoyé avec succès.");
+                        ResetProgressBar(progressBar, lblSpeed);
                     }
                 }
             }
@@ -148,7 +150,7 @@ namespace UTransfer
 
                         byte[] fileNameBytes = new byte[1024];
                         stream.Read(fileNameBytes, 0, fileNameBytes.Length);
-                        string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0');
+                        string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0').Replace("\0", ""); // Supprime les caractères nuls
 
                         if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
                         {
@@ -167,11 +169,12 @@ namespace UTransfer
                                 while (totalBytesReceived < fileSize)
                                 {
                                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                                    if (System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead).Contains("CANCELLED"))
+                                    if (System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead).Contains("CANCELLED") || !client.Connected)
                                     {
                                         fs.Close();
                                         File.Delete(savePath);
                                         MessageBox.Show("Transfert annulé.");
+                                        ResetProgressBar(progressBar, lblSpeed);
                                         return;
                                     }
 
@@ -189,6 +192,7 @@ namespace UTransfer
                             }
 
                             MessageBox.Show($"Fichier reçu : {savePath}");
+                            ResetProgressBar(progressBar, lblSpeed);
                         }
                     }
                     client.Close();
@@ -204,6 +208,15 @@ namespace UTransfer
                 Debug.WriteLine($"Erreur de réception : {ex.Message}");
                 MessageBox.Show("Erreur lors de la réception.");
             }
+        }
+
+        private static void ResetProgressBar(ProgressBar progressBar, Label lblSpeed)
+        {
+            progressBar.Invoke((MethodInvoker)(() =>
+            {
+                progressBar.Value = 0;
+                lblSpeed.Text = "Vitesse : 0 MB/s";
+            }));
         }
     }
 }
