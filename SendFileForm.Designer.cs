@@ -15,82 +15,82 @@
 
         private void InitializeComponent()
         {
-            this.txtIpAddress = new System.Windows.Forms.TextBox();
-            this.btnEnvoyer = new System.Windows.Forms.Button();
-            this.btnAnnuler = new System.Windows.Forms.Button();
-            this.labelIp = new System.Windows.Forms.Label();
-            this.progressBar = new System.Windows.Forms.ProgressBar();
-            this.lblSpeed = new System.Windows.Forms.Label();
-            this.SuspendLayout();
+            txtIpAddress = new TextBox();
+            btnEnvoyer = new Button();
+            btnAnnuler = new Button();
+            labelIp = new Label();
+            progressBar = new ProgressBar();
+            lblSpeed = new Label();
+            SuspendLayout();
             // 
             // txtIpAddress
             // 
-            this.txtIpAddress.Location = new System.Drawing.Point(20, 50);
-            this.txtIpAddress.Name = "txtIpAddress";
-            this.txtIpAddress.Size = new System.Drawing.Size(200, 22);
-            this.txtIpAddress.TabIndex = 0;
+            txtIpAddress.Location = new Point(34, 47);
+            txtIpAddress.Name = "txtIpAddress";
+            txtIpAddress.Size = new Size(176, 23);
+            txtIpAddress.TabIndex = 0;
             // 
             // btnEnvoyer
             // 
-            this.btnEnvoyer.Location = new System.Drawing.Point(20, 130);
-            this.btnEnvoyer.Name = "btnEnvoyer";
-            this.btnEnvoyer.Size = new System.Drawing.Size(150, 30);
-            this.btnEnvoyer.TabIndex = 1;
-            this.btnEnvoyer.Text = "Envoyer";
-            this.btnEnvoyer.UseVisualStyleBackColor = true;
-            this.btnEnvoyer.Click += new System.EventHandler(this.btnEnvoyer_Click);
+            btnEnvoyer.Location = new Point(58, 138);
+            btnEnvoyer.Name = "btnEnvoyer";
+            btnEnvoyer.Size = new Size(131, 28);
+            btnEnvoyer.TabIndex = 1;
+            btnEnvoyer.Text = "Envoyer";
+            btnEnvoyer.UseVisualStyleBackColor = true;
+            btnEnvoyer.Click += btnEnvoyer_Click;
             // 
             // btnAnnuler
             // 
-            this.btnAnnuler.Location = new System.Drawing.Point(20, 170);
-            this.btnAnnuler.Name = "btnAnnuler";
-            this.btnAnnuler.Size = new System.Drawing.Size(150, 30);
-            this.btnAnnuler.TabIndex = 5;
-            this.btnAnnuler.Text = "Annuler";
-            this.btnAnnuler.UseVisualStyleBackColor = true;
-            this.btnAnnuler.Click += new System.EventHandler(this.btnAnnuler_Click);
+            btnAnnuler.Location = new Point(58, 172);
+            btnAnnuler.Name = "btnAnnuler";
+            btnAnnuler.Size = new Size(131, 28);
+            btnAnnuler.TabIndex = 5;
+            btnAnnuler.Text = "Annuler";
+            btnAnnuler.UseVisualStyleBackColor = true;
+            btnAnnuler.Click += btnAnnuler_Click;
             // 
             // labelIp
             // 
-            this.labelIp.AutoSize = true;
-            this.labelIp.Location = new System.Drawing.Point(20, 30);
-            this.labelIp.Name = "labelIp";
-            this.labelIp.Size = new System.Drawing.Size(108, 17);
-            this.labelIp.TabIndex = 2;
-            this.labelIp.Text = "Adresse IP Amis:";
+            labelIp.AutoSize = true;
+            labelIp.Location = new Point(34, 29);
+            labelIp.Name = "labelIp";
+            labelIp.Size = new Size(94, 15);
+            labelIp.TabIndex = 2;
+            labelIp.Text = "Adresse IP Amis:";
             // 
             // progressBar
             // 
-            this.progressBar.Location = new System.Drawing.Point(20, 90);
-            this.progressBar.Name = "progressBar";
-            this.progressBar.Size = new System.Drawing.Size(200, 25);
-            this.progressBar.TabIndex = 3;
+            progressBar.Location = new Point(34, 85);
+            progressBar.Name = "progressBar";
+            progressBar.Size = new Size(175, 23);
+            progressBar.TabIndex = 3;
             // 
             // lblSpeed
             // 
-            this.lblSpeed.AutoSize = true;
-            this.lblSpeed.Location = new System.Drawing.Point(20, 210);
-            this.lblSpeed.Name = "lblSpeed";
-            this.lblSpeed.Size = new System.Drawing.Size(82, 17);
-            this.lblSpeed.TabIndex = 4;
-            this.lblSpeed.Text = "Vitesse : 0 kB/s";
+            lblSpeed.AutoSize = true;
+            lblSpeed.Location = new Point(34, 111);
+            lblSpeed.Name = "lblSpeed";
+            lblSpeed.Size = new Size(84, 15);
+            lblSpeed.TabIndex = 4;
+            lblSpeed.Text = "Vitesse : 0 kB/s";
             // 
             // SendFileForm
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(284, 250);
-            this.Controls.Add(this.lblSpeed);
-            this.Controls.Add(this.progressBar);
-            this.Controls.Add(this.labelIp);
-            this.Controls.Add(this.txtIpAddress);
-            this.Controls.Add(this.btnAnnuler);
-            this.Controls.Add(this.btnEnvoyer);
-            this.Name = "SendFileForm";
-            this.Text = "Envoyer un fichier";
-            this.Load += new System.EventHandler(this.SendFileForm_Load);
-            this.ResumeLayout(false);
-            this.PerformLayout();
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(248, 234);
+            Controls.Add(lblSpeed);
+            Controls.Add(progressBar);
+            Controls.Add(labelIp);
+            Controls.Add(txtIpAddress);
+            Controls.Add(btnAnnuler);
+            Controls.Add(btnEnvoyer);
+            Name = "SendFileForm";
+            Text = "Envoyer un fichier";
+            Load += SendFileForm_Load;
+            ResumeLayout(false);
+            PerformLayout();
         }
 
         private System.Windows.Forms.TextBox txtIpAddress;

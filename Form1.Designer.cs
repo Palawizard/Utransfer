@@ -25,7 +25,7 @@
             // buttonEnvoyer
             // 
             buttonEnvoyer.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            buttonEnvoyer.Location = new Point(79, 75);
+            buttonEnvoyer.Location = new Point(79, 59);
             buttonEnvoyer.Name = "buttonEnvoyer";
             buttonEnvoyer.Size = new Size(131, 25);
             buttonEnvoyer.TabIndex = 0;
@@ -35,7 +35,7 @@
             // 
             // buttonRecevoir
             // 
-            buttonRecevoir.Location = new Point(79, 112);
+            buttonRecevoir.Location = new Point(79, 90);
             buttonRecevoir.Name = "buttonRecevoir";
             buttonRecevoir.Size = new Size(131, 28);
             buttonRecevoir.TabIndex = 1;
@@ -45,7 +45,7 @@
             // 
             // buttonArreter
             // 
-            buttonArreter.Location = new Point(79, 150);
+            buttonArreter.Location = new Point(79, 124);
             buttonArreter.Name = "buttonArreter";
             buttonArreter.Size = new Size(131, 28);
             buttonArreter.TabIndex = 2;
@@ -55,7 +55,7 @@
             // 
             // progressBar1
             // 
-            progressBar1.Location = new Point(20, 180);
+            progressBar1.Location = new Point(45, 170);
             progressBar1.Name = "progressBar1";
             progressBar1.Size = new Size(200, 25);
             progressBar1.TabIndex = 3;
@@ -63,9 +63,9 @@
             // lblSpeed
             // 
             lblSpeed.AutoSize = true;
-            lblSpeed.Location = new Point(20, 220);
+            lblSpeed.Location = new Point(45, 198);
             lblSpeed.Name = "lblSpeed";
-            lblSpeed.Size = new Size(82, 17);
+            lblSpeed.Size = new Size(84, 15);
             lblSpeed.TabIndex = 4;
             lblSpeed.Text = "Vitesse : 0 kB/s";
             // 

@@ -13,6 +13,7 @@ namespace UTransfer
         private static TcpListener? listener;
         private static bool isServerRunning = false;
         private static Thread? serverThread;
+        private static TcpClient? currentClient; // Référence au client en cours pour forcer la fermeture lors de l'arrêt du serveur
         private static byte[] buffer = new byte[524288]; // 512 Ko pour un transfert plus rapide
 
         // Méthode pour envoyer un fichier à une adresse IP spécifiée
@@ -126,6 +127,14 @@ namespace UTransfer
             {
                 isServerRunning = false;
                 listener.Stop();
+
+                // Si un transfert est en cours, fermer la connexion
+                if (currentClient != null && currentClient.Connected)
+                {
+                    currentClient.Close();
+                    currentClient = null;  // Réinitialise la référence du client
+                }
+
                 listener = null;
                 MessageBox.Show("Le serveur a été arrêté.");
             }
@@ -142,6 +151,7 @@ namespace UTransfer
                 while (isServerRunning)
                 {
                     TcpClient client = listener.AcceptTcpClient();
+                    currentClient = client; // Mémorise la connexion active
                     using (NetworkStream stream = client.GetStream())
                     {
                         byte[] fileSizeBytes = new byte[8];
@@ -196,6 +206,7 @@ namespace UTransfer
                         }
                     }
                     client.Close();
+                    currentClient = null;  // Réinitialise la référence une fois le transfert terminé
                 }
             }
             catch (SocketException ex)
