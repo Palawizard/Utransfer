@@ -1,8 +1,10 @@
 ﻿using System;
 using System.IO;
+using System.IO.Compression; // Nécessaire pour la compression
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
 
@@ -14,10 +16,23 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
         private static bool isTransferCancelled = false;
-        private const int BufferSize = 65536; // Augmenté à 64 Ko
+        private const int BufferSize = 131072; // Augmenté à 128 Ko
+
+        // Compression du fichier avant l'envoi
+        private static string CompressFile(string filePath)
+        {
+            string compressedFilePath = filePath + ".gz";
+            using (FileStream originalFileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            using (FileStream compressedFileStream = new FileStream(compressedFilePath, FileMode.Create))
+            using (GZipStream compressionStream = new GZipStream(compressedFileStream, CompressionMode.Compress))
+            {
+                originalFileStream.CopyTo(compressionStream);
+            }
+            return compressedFilePath;
+        }
 
         // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
-        public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
+        public static async Task SendFileAsync(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
         {
             try
             {
@@ -27,25 +42,28 @@ namespace UTransfer
                     return;
                 }
 
+                // Compression du fichier
+                string compressedFilePath = CompressFile(filePath);
+                long fileSize = new FileInfo(compressedFilePath).Length;
+
                 Debug.WriteLine($"Tentative de connexion à {ipAddress} pour envoyer le fichier {filePath}.");
 
                 using (TcpClient client = new TcpClient())
                 {
                     client.NoDelay = true; // Désactive l'algorithme de Nagle pour améliorer la vitesse de transfert
-                    client.Connect(ipAddress, 5001); // Connexion au serveur
+                    await client.ConnectAsync(ipAddress, 5001); // Connexion au serveur
 
                     using (NetworkStream stream = client.GetStream())
                     {
-                        string fileName = Path.GetFileName(filePath);
+                        string fileName = Path.GetFileName(compressedFilePath);
                         byte[] fileNameBytes = System.Text.Encoding.UTF8.GetBytes(fileName);
-                        long fileSize = new FileInfo(filePath).Length;
                         byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
 
-                        stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
-                        stream.Write(fileNameBytes, 0, fileNameBytes.Length);
+                        await stream.WriteAsync(fileSizeBytes, 0, fileSizeBytes.Length);
+                        await stream.WriteAsync(fileNameBytes, 0, fileNameBytes.Length);
 
-                        byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 64 Ko
-                        using (FileStream fs = File.OpenRead(filePath))
+                        byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 128 Ko
+                        using (FileStream fs = File.OpenRead(compressedFilePath))
                         {
                             int bytesRead;
                             long totalBytesSent = 0;
@@ -54,18 +72,18 @@ namespace UTransfer
 
                             progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
 
-                            while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
+                            while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
                             {
                                 if (isCancelled())
                                 {
                                     Debug.WriteLine("Transfert annulé.");
                                     byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");  // Message spécial d'annulation
-                                    stream.Write(cancelMessage, 0, cancelMessage.Length);
+                                    await stream.WriteAsync(cancelMessage, 0, cancelMessage.Length);
                                     MessageBox.Show("Transfert annulé.");
                                     break;
                                 }
 
-                                stream.Write(buffer, 0, bytesRead);
+                                await stream.WriteAsync(buffer, 0, bytesRead);
                                 totalBytesSent += bytesRead;
 
                                 progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
@@ -162,7 +180,7 @@ namespace UTransfer
                             string savePath = Path.Combine(saveFolderPath, fileName);
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
-                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 64 Ko
+                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 128 Ko
                                 long totalBytesReceived = 0;
 
                                 Stopwatch stopwatch = new Stopwatch();

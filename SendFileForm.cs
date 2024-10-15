@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
 
@@ -8,7 +9,7 @@ namespace UTransfer
     public partial class SendFileForm : Form
     {
         private bool isCancelled = false;
-        private Thread? sendFileThread;  // Déclarer comme nullable
+        private Task? sendFileTask;  // Remplacer le thread par une tâche asynchrone
 
         public SendFileForm()
         {
@@ -20,7 +21,7 @@ namespace UTransfer
             Debug.WriteLine("Fenêtre SendFileForm chargée.");
         }
 
-        private void btnEnvoyer_Click(object sender, EventArgs e)
+        private async void btnEnvoyer_Click(object sender, EventArgs e)
         {
             string ipAddress = txtIpAddress.Text;  // Récupère l'adresse IP saisie
             string filePath = SelectFile();  // Ouvre une boîte de dialogue pour sélectionner un fichier
@@ -34,13 +35,9 @@ namespace UTransfer
                 lblSpeed.Text = "Vitesse : 0 kB/s";
                 isCancelled = false;
 
-                // Crée un thread séparé pour l'envoi du fichier
-                sendFileThread = new Thread(() =>
-                {
-                    NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
-                });
-                sendFileThread.IsBackground = true;
-                sendFileThread.Start();
+                // Démarrer l'envoi du fichier en mode asynchrone
+                sendFileTask = NetworkHelper.SendFileAsync(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
+                await sendFileTask;
             }
             else
             {
