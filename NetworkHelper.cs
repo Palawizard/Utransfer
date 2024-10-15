@@ -14,7 +14,7 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
         private static bool isTransferCancelled = false;
-        private const int BufferSize = 131072; // Augmenté à 128 Ko
+        private const int BufferSize = 65536; // Augmenté à 64 Ko
 
         // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
         public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
