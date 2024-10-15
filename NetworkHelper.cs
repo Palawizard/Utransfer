@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
 
@@ -14,10 +15,10 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
         private static bool isTransferCancelled = false;
-        private const int BufferSize = 131072; // Augmenté à 128ko
+        private const int BufferSize = 65536; // 64 Ko
 
         // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
-        public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
+        public static async void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
         {
             try
             {
@@ -33,52 +34,70 @@ namespace UTransfer
                 {
                     client.NoDelay = true;  // Désactive l'algorithme de Nagle pour une meilleure performance
                     client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); // Active KeepAlive
-                    client.Connect(ipAddress, 5001);  // Connexion au serveur
+                    await client.ConnectAsync(ipAddress, 5001);  // Connexion au serveur
 
-                    using (NetworkStream stream = client.GetStream())
+                    using (NetworkStream networkStream = client.GetStream())
                     {
-                        stream.ReadTimeout = 5000;  // Définit un délai d'attente pour éviter les blocages
-                        stream.WriteTimeout = 5000;
-
+                        // Envoyer les métadonnées (taille et nom du fichier)
                         string fileName = Path.GetFileName(filePath);
                         byte[] fileNameBytes = System.Text.Encoding.UTF8.GetBytes(fileName);
                         long fileSize = new FileInfo(filePath).Length;
                         byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
 
-                        stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
-                        stream.Write(fileNameBytes, 0, fileNameBytes.Length);
+                        await networkStream.WriteAsync(fileSizeBytes, 0, fileSizeBytes.Length);
+                        byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameBytes.Length);
+                        await networkStream.WriteAsync(fileNameLengthBytes, 0, fileNameLengthBytes.Length);
+                        await networkStream.WriteAsync(fileNameBytes, 0, fileNameBytes.Length);
 
-                        byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 128 Ko
-                        using (FileStream fs = File.OpenRead(filePath))
+                        // Envoyer le fichier
+                        byte[] buffer = new byte[BufferSize];
+                        using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, useAsync: true))
                         {
-                            int bytesRead;
                             long totalBytesSent = 0;
                             Stopwatch stopwatch = new Stopwatch();
                             stopwatch.Start();
 
-                            progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
+                            progressBar.Invoke((MethodInvoker)(() =>
+                            {
+                                progressBar.Maximum = 100;
+                                progressBar.Value = 0;
+                            }));
 
-                            while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
+                            int bytesRead;
+                            double lastUpdateTime = 0;
+
+                            while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
                             {
                                 if (isCancelled())
                                 {
                                     Debug.WriteLine("Transfert annulé.");
-                                    byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");
-                                    stream.Write(cancelMessage, 0, cancelMessage.Length);
+                                    // Envoyer un message de contrôle d'annulation
+                                    byte[] controlMessage = System.Text.Encoding.UTF8.GetBytes("<CANCEL>");
+                                    await networkStream.WriteAsync(controlMessage, 0, controlMessage.Length);
                                     MessageBox.Show("Transfert annulé.");
                                     break;
                                 }
 
-                                stream.Write(buffer, 0, bytesRead);
+                                await networkStream.WriteAsync(buffer, 0, bytesRead);
                                 totalBytesSent += bytesRead;
 
-                                progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
-
                                 double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                                if (elapsedSeconds > 0)
+                                if (elapsedSeconds - lastUpdateTime >= 0.5) // Mettre à jour toutes les 500 ms
                                 {
+                                    double progress = (double)totalBytesSent / fileSize * 100;
                                     double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // en MB/s
-                                    lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
+
+                                    progressBar.Invoke((MethodInvoker)(() =>
+                                    {
+                                        progressBar.Value = (int)progress;
+                                    }));
+
+                                    lblSpeed.Invoke((MethodInvoker)(() =>
+                                    {
+                                        lblSpeed.Text = $"Vitesse : {speed:F2} MB/s";
+                                    }));
+
+                                    lastUpdateTime = elapsedSeconds;
                                 }
                             }
                         }
@@ -98,7 +117,7 @@ namespace UTransfer
             catch (IOException ex)
             {
                 Debug.WriteLine($"Erreur d'entrée/sortie : {ex.Message}");
-                MessageBox.Show("Erreur lors de la lecture du fichier. Assurez-vous que le fichier est accessible.", "Erreur de fichier");
+                MessageBox.Show("Erreur lors de la lecture du fichier ou de l'écriture sur le réseau.", "Erreur de fichier");
             }
             catch (Exception ex)
             {
@@ -144,76 +163,103 @@ namespace UTransfer
                 while (isServerRunning)
                 {
                     TcpClient client = listener.AcceptTcpClient();
-                    using (NetworkStream stream = client.GetStream())
+                    Task.Run(async () =>
                     {
-                        stream.ReadTimeout = 5000; // Définit un délai d'attente pour éviter les blocages
-                        stream.WriteTimeout = 5000;
-
-                        byte[] fileSizeBytes = new byte[8];
-                        stream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
-                        long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
-
-                        byte[] fileNameBytes = new byte[1024];
-                        stream.Read(fileNameBytes, 0, fileNameBytes.Length);
-                        string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0');
-
-                        if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                        using (NetworkStream networkStream = client.GetStream())
                         {
-                            string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "fichiers_recus");
+                            // Recevoir les métadonnées (taille et nom du fichier)
+                            byte[] fileSizeBytes = new byte[8];
+                            await networkStream.ReadAsync(fileSizeBytes, 0, fileSizeBytes.Length);
+                            long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
 
-                            if (!Directory.Exists(saveFolderPath))
+                            byte[] fileNameLengthBytes = new byte[4];
+                            await networkStream.ReadAsync(fileNameLengthBytes, 0, fileNameLengthBytes.Length);
+                            int fileNameLength = BitConverter.ToInt32(fileNameLengthBytes, 0);
+
+                            byte[] fileNameBytes = new byte[fileNameLength];
+                            await networkStream.ReadAsync(fileNameBytes, 0, fileNameBytes.Length);
+                            string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes);
+
+                            if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
                             {
-                                Directory.CreateDirectory(saveFolderPath);
-                            }
+                                string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "fichiers_recus");
 
-                            string savePath = Path.Combine(saveFolderPath, fileName);
-                            using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
-                            {
-                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 128 Ko
-                                long totalBytesReceived = 0;
-
-                                Stopwatch stopwatch = new Stopwatch();
-                                stopwatch.Start();
-
-                                progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
-
-                                while (totalBytesReceived < fileSize)
+                                if (!Directory.Exists(saveFolderPath))
                                 {
-                                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                                    string message = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                                    Directory.CreateDirectory(saveFolderPath);
+                                }
 
-                                    // Si un message d'annulation est reçu, supprimer le fichier
-                                    if (message.Contains("CANCELLED"))
+                                string savePath = Path.Combine(saveFolderPath, fileName);
+                                using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, useAsync: true))
+                                {
+                                    byte[] buffer = new byte[BufferSize];
+                                    long totalBytesReceived = 0;
+                                    Stopwatch stopwatch = new Stopwatch();
+                                    stopwatch.Start();
+
+                                    progressBar.Invoke((MethodInvoker)(() =>
                                     {
-                                        fs.Close();
-                                        File.Delete(savePath);  // Supprime le fichier partiellement reçu
-                                        MessageBox.Show("Le transfert a été annulé par l'envoyeur.");
-                                        return;
-                                    }
+                                        progressBar.Maximum = 100;
+                                        progressBar.Value = 0;
+                                    }));
 
-                                    if (bytesRead == 0 || isTransferCancelled)
+                                    int bytesRead;
+                                    double lastUpdateTime = 0;
+
+                                    while (totalBytesReceived < fileSize)
                                     {
-                                        if (isTransferCancelled) MessageBox.Show("Transfert annulé.");
-                                        break;
-                                    }
-                                    fs.Write(buffer, 0, bytesRead);
-                                    totalBytesReceived += bytesRead;
+                                        bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length);
+                                        if (bytesRead == 0)
+                                        {
+                                            break; // Fin du flux
+                                        }
 
-                                    progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesReceived / 1024)));
+                                        // Vérifier les messages de contrôle
+                                        string message = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                                        if (message.Contains("<CANCEL>"))
+                                        {
+                                            fs.Close();
+                                            File.Delete(savePath);  // Supprime le fichier partiellement reçu
+                                            MessageBox.Show("Le transfert a été annulé par l'envoyeur.");
+                                            return;
+                                        }
 
-                                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                                    if (elapsedSeconds > 0)
-                                    {
-                                        double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
-                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
+                                        await fs.WriteAsync(buffer, 0, bytesRead);
+                                        totalBytesReceived += bytesRead;
+
+                                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                                        if (elapsedSeconds - lastUpdateTime >= 0.5) // Mettre à jour toutes les 500 ms
+                                        {
+                                            double progress = (double)totalBytesReceived / fileSize * 100;
+                                            double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds; // en MB/s
+
+                                            progressBar.Invoke((MethodInvoker)(() =>
+                                            {
+                                                progressBar.Value = (int)progress;
+                                            }));
+
+                                            lblSpeed.Invoke((MethodInvoker)(() =>
+                                            {
+                                                lblSpeed.Text = $"Vitesse : {speed:F2} MB/s";
+                                            }));
+
+                                            lastUpdateTime = elapsedSeconds;
+                                        }
+
+                                        if (isTransferCancelled)
+                                        {
+                                            MessageBox.Show("Transfert annulé.");
+                                            break;
+                                        }
                                     }
                                 }
-                            }
 
-                            if (!isTransferCancelled) MessageBox.Show($"Fichier reçu : {savePath}");
+                                if (!isTransferCancelled)
+                                    MessageBox.Show($"Fichier reçu : {savePath}");
+                            }
                         }
-                    }
-                    client.Close();
+                        client.Close();
+                    });
                 }
             }
             catch (SocketException ex)
