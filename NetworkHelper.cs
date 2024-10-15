@@ -146,16 +146,16 @@ namespace UTransfer
                     TcpClient client = listener.AcceptTcpClient();
                     using (NetworkStream stream = client.GetStream())
                     {
+                        stream.ReadTimeout = 5000; // Définit un délai d'attente pour éviter les blocages
+                        stream.WriteTimeout = 5000;
+
                         byte[] fileSizeBytes = new byte[8];
                         stream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
                         long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
 
                         byte[] fileNameBytes = new byte[1024];
                         stream.Read(fileNameBytes, 0, fileNameBytes.Length);
-                        string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0'); // Enlever les caractères nuls
-
-                        // Supprimer les caractères non valides dans le nom du fichier
-                        fileName = fileName.Replace("\0", "").Replace(":", "").Replace("\\", "").Replace("/", "");
+                        string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0');
 
                         if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
                         {
@@ -169,7 +169,7 @@ namespace UTransfer
                             string savePath = Path.Combine(saveFolderPath, fileName);
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
-                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 64 Ko
+                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 128 Ko
                                 long totalBytesReceived = 0;
 
                                 Stopwatch stopwatch = new Stopwatch();
@@ -182,6 +182,7 @@ namespace UTransfer
                                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
                                     string message = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
+                                    // Si un message d'annulation est reçu, supprimer le fichier
                                     if (message.Contains("CANCELLED"))
                                     {
                                         fs.Close();
