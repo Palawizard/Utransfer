@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
 
@@ -7,6 +8,7 @@ namespace UTransfer
     public partial class SendFileForm : Form
     {
         private bool isCancelled = false;
+        private Thread? sendFileThread;  // Déclarer comme nullable
 
         public SendFileForm()
         {
@@ -32,8 +34,13 @@ namespace UTransfer
                 lblSpeed.Text = "Vitesse : 0 kB/s";
                 isCancelled = false;
 
-                // Appelle la méthode d'envoi dans NetworkHelper en passant la ProgressBar et le Label
-                NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
+                // Crée un thread séparé pour l'envoi du fichier
+                sendFileThread = new Thread(() =>
+                {
+                    NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
+                });
+                sendFileThread.IsBackground = true;
+                sendFileThread.Start();
             }
             else
             {
@@ -56,6 +63,10 @@ namespace UTransfer
         private void btnAnnuler_Click(object sender, EventArgs e)
         {
             isCancelled = true;  // Annule l'envoi
+            if (sendFileThread != null && sendFileThread.IsAlive)
+            {
+                sendFileThread.Join();  // Attend la fin du thread
+            }
             MessageBox.Show("Envoi annulé.");
         }
     }
