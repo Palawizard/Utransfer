@@ -62,11 +62,7 @@ namespace UTransfer
         // Méthode pour annuler l'envoi
         private void btnAnnuler_Click(object sender, EventArgs e)
         {
-            isCancelled = true;  // Annule l'envoi
-            if (sendFileThread != null && sendFileThread.IsAlive)
-            {
-                sendFileThread.Join();  // Attend la fin du thread
-            }
+            isCancelled = true;  // Marquer le transfert comme annulé
             MessageBox.Show("Envoi annulé.");
         }
     }
