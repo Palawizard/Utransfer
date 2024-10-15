@@ -31,15 +31,10 @@ namespace UTransfer
 
                 using (TcpClient client = new TcpClient())
                 {
-                    client.NoDelay = true;  // Désactive l'algorithme de Nagle pour une meilleure performance
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); // Active KeepAlive
                     client.Connect(ipAddress, 5001);  // Connexion au serveur
 
                     using (NetworkStream stream = client.GetStream())
                     {
-                        stream.ReadTimeout = 5000;  // Définit un délai d'attente pour éviter les blocages
-                        stream.WriteTimeout = 5000;
-
                         string fileName = Path.GetFileName(filePath);
                         byte[] fileNameBytes = System.Text.Encoding.UTF8.GetBytes(fileName);
                         long fileSize = new FileInfo(filePath).Length;
@@ -154,6 +149,7 @@ namespace UTransfer
                         stream.Read(fileNameBytes, 0, fileNameBytes.Length);
                         string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0'); // Enlever les caractères nuls
 
+                        // Supprimer les caractères non valides dans le nom du fichier
                         fileName = fileName.Replace("\0", "").Replace(":", "").Replace("\\", "").Replace("/", "");
 
                         if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
