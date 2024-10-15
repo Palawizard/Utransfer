@@ -37,6 +37,7 @@ namespace UTransfer
                 // Crée un thread séparé pour l'envoi du fichier
                 sendFileThread = new Thread(() =>
                 {
+                    // Utilise la méthode SendFile (et non SendFileAsync)
                     NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
                 });
                 sendFileThread.IsBackground = true;
