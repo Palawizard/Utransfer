@@ -40,9 +40,6 @@ namespace UTransfer
 
                     using (NetworkStream stream = client.GetStream())
                     {
-                        stream.WriteTimeout = 5000;
-                        stream.ReadTimeout = 5000;
-
                         string fileName = Path.GetFileName(filePath);
                         byte[] fileNameBytes = System.Text.Encoding.UTF8.GetBytes(fileName);
                         long fileSize = new FileInfo(filePath).Length;
@@ -145,9 +142,6 @@ namespace UTransfer
                     TcpClient client = listener.AcceptTcpClient();
                     using (NetworkStream stream = client.GetStream())
                     {
-                        stream.WriteTimeout = 5000;
-                        stream.ReadTimeout = 5000;
-
                         byte[] fileSizeBytes = new byte[8];
                         stream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
                         long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
