@@ -57,6 +57,8 @@ namespace UTransfer
                                 if (isCancelled())
                                 {
                                     Debug.WriteLine("Transfert annulé.");
+                                    byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");  // Message spécial d'annulation
+                                    stream.Write(cancelMessage, 0, cancelMessage.Length);
                                     MessageBox.Show("Transfert annulé.");
                                     break;
                                 }
@@ -75,7 +77,10 @@ namespace UTransfer
                             }
                         }
 
-                        MessageBox.Show("Fichier envoyé avec succès.");
+                        if (!isCancelled())
+                        {
+                            MessageBox.Show("Fichier envoyé avec succès.");
+                        }
                     }
                 }
             }
@@ -166,15 +171,20 @@ namespace UTransfer
                                 while (totalBytesReceived < fileSize)
                                 {
                                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                                    string message = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                                    // Si un message d'annulation est reçu, supprimer le fichier
+                                    if (message.Contains("CANCELLED"))
+                                    {
+                                        fs.Close();
+                                        File.Delete(savePath);  // Supprime le fichier partiellement reçu
+                                        MessageBox.Show("Le transfert a été annulé par l'envoyeur.");
+                                        return;
+                                    }
+
                                     if (bytesRead == 0 || isTransferCancelled)
                                     {
-                                        if (isTransferCancelled)
-                                        {
-                                            MessageBox.Show("Transfert annulé par l'expéditeur.");
-                                            fs.Close();  // Fermer le fichier
-                                            File.Delete(savePath);  // Supprimer le fichier partiellement reçu
-                                            return;
-                                        }
+                                        if (isTransferCancelled) MessageBox.Show("Transfert annulé.");
                                         break;
                                     }
                                     fs.Write(buffer, 0, bytesRead);
@@ -191,8 +201,7 @@ namespace UTransfer
                                 }
                             }
 
-                            if (!isTransferCancelled)
-                                MessageBox.Show($"Fichier reçu : {savePath}");
+                            if (!isTransferCancelled) MessageBox.Show($"Fichier reçu : {savePath}");
                         }
                     }
                     client.Close();
