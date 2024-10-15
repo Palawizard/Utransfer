@@ -15,39 +15,39 @@
 
         private void InitializeComponent()
         {
-            this.labelMessage = new System.Windows.Forms.Label();
-            this.buttonArreter = new System.Windows.Forms.Button();
-            this.SuspendLayout();
+            labelMessage = new Label();
+            buttonArreter = new Button();
+            SuspendLayout();
             // 
             // labelMessage
             // 
-            this.labelMessage.AutoSize = true;
-            this.labelMessage.Location = new System.Drawing.Point(40, 30);
-            this.labelMessage.Name = "labelMessage";
-            this.labelMessage.Size = new System.Drawing.Size(210, 17);
-            this.labelMessage.TabIndex = 0;
-            this.labelMessage.Text = "Serveur en attente de connexion...";
+            labelMessage.AutoSize = true;
+            labelMessage.Location = new Point(40, 30);
+            labelMessage.Name = "labelMessage";
+            labelMessage.Size = new Size(186, 15);
+            labelMessage.TabIndex = 0;
+            labelMessage.Text = "Serveur en attente de connexion...";
             // 
             // buttonArreter
             // 
-            this.buttonArreter.Location = new System.Drawing.Point(90, 70);
-            this.buttonArreter.Name = "buttonArreter";
-            this.buttonArreter.Size = new System.Drawing.Size(100, 30);
-            this.buttonArreter.TabIndex = 1;
-            this.buttonArreter.Text = "Arrêter";
-            this.buttonArreter.UseVisualStyleBackColor = true;
-            this.buttonArreter.Click += new System.EventHandler(this.buttonArreter_Click);
+            buttonArreter.Location = new Point(90, 70);
+            buttonArreter.Name = "buttonArreter";
+            buttonArreter.Size = new Size(100, 30);
+            buttonArreter.TabIndex = 1;
+            buttonArreter.Text = "Arrêter";
+            buttonArreter.UseVisualStyleBackColor = true;
+            buttonArreter.Click += buttonArreter_Click;
             // 
             // ServerConnectionForm
             // 
-            this.ClientSize = new System.Drawing.Size(284, 131);
-            this.Controls.Add(this.buttonArreter);
-            this.Controls.Add(this.labelMessage);
-            this.Name = "ServerConnectionForm";
-            this.Text = "Connexion au serveur";
-            this.ResumeLayout(false);
-            this.PerformLayout();
-
+            ClientSize = new Size(284, 131);
+            Controls.Add(buttonArreter);
+            Controls.Add(labelMessage);
+            Name = "ServerConnectionForm";
+            Text = "Connexion au serveur";
+            Load += ServerConnectionForm_Load;
+            ResumeLayout(false);
+            PerformLayout();
         }
 
         private System.Windows.Forms.Label labelMessage;

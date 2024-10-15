@@ -1,6 +1,7 @@
 using System;
 using System.Windows.Forms;
 using System.Diagnostics;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace UTransfer
 {
@@ -26,7 +27,9 @@ namespace UTransfer
         private void buttonRecevoir_Click(object sender, EventArgs e)
         {
             Debug.WriteLine("Bouton 'Recevoir' cliqué. Démarrage du serveur de réception.");
-            NetworkHelper.RunServerInThread();  // Démarre le serveur et affiche un message de confirmation
+
+            // Appel modifié pour inclure la ProgressBar et le Label de vitesse
+            NetworkHelper.RunServerInThread(progressBar1, lblSpeed);
         }
 
         private void buttonArreter_Click(object sender, EventArgs e)

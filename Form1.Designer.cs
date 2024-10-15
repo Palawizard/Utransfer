@@ -18,6 +18,8 @@
             buttonEnvoyer = new Button();
             buttonRecevoir = new Button();
             buttonArreter = new Button();
+            progressBar1 = new ProgressBar();
+            lblSpeed = new Label();
             SuspendLayout();
             // 
             // buttonEnvoyer
@@ -51,11 +53,29 @@
             buttonArreter.UseVisualStyleBackColor = true;
             buttonArreter.Click += buttonArreter_Click;
             // 
+            // progressBar1
+            // 
+            progressBar1.Location = new Point(20, 180);
+            progressBar1.Name = "progressBar1";
+            progressBar1.Size = new Size(200, 25);
+            progressBar1.TabIndex = 3;
+            // 
+            // lblSpeed
+            // 
+            lblSpeed.AutoSize = true;
+            lblSpeed.Location = new Point(20, 220);
+            lblSpeed.Name = "lblSpeed";
+            lblSpeed.Size = new Size(82, 17);
+            lblSpeed.TabIndex = 4;
+            lblSpeed.Text = "Vitesse : 0 kB/s";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(280, 225);
+            ClientSize = new Size(280, 280);
+            Controls.Add(lblSpeed);
+            Controls.Add(progressBar1);
             Controls.Add(buttonArreter);
             Controls.Add(buttonRecevoir);
             Controls.Add(buttonEnvoyer);
@@ -65,10 +85,13 @@
             Text = "UTransfer";
             Load += Form1_Load;
             ResumeLayout(false);
+            PerformLayout();
         }
 
         private System.Windows.Forms.Button buttonEnvoyer;
         private System.Windows.Forms.Button buttonRecevoir;
         private System.Windows.Forms.Button buttonArreter;  // Bouton Arrêter
+        private System.Windows.Forms.ProgressBar progressBar1;  // Barre de progression
+        private System.Windows.Forms.Label lblSpeed;  // Label pour afficher la vitesse
     }
 }

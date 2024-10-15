@@ -1,9 +1,11 @@
 ﻿using System;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Linq;
 
 namespace UTransfer
 {
@@ -28,14 +30,19 @@ namespace UTransfer
 
                 using (TcpClient client = new TcpClient())
                 {
-                    client.Connect(ipAddress, 5001);
+                    client.Connect(ipAddress, 5001); // Connexion au serveur
+
                     using (NetworkStream stream = client.GetStream())
                     {
+                        // Encode le nom de fichier en Base64 pour éviter la corruption des caractères
                         string fileName = Path.GetFileName(filePath);
-                        byte[] fileNameBytes = System.Text.Encoding.UTF8.GetBytes(fileName);
+                        string encodedFileName = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(fileName));
+
                         long fileSize = new FileInfo(filePath).Length;
                         byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
+                        byte[] fileNameBytes = System.Text.Encoding.UTF8.GetBytes(encodedFileName);
 
+                        // Envoie du nom du fichier encodé et de la taille du fichier
                         stream.Write(fileNameBytes, 0, fileNameBytes.Length);
                         stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
 
@@ -89,12 +96,12 @@ namespace UTransfer
             }
         }
 
-        // Méthode pour démarrer le serveur dans un thread séparé
-        public static void RunServerInThread()
+        // Méthode pour démarrer le serveur dans un thread séparé avec ProgressBar et Label de vitesse
+        public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed)
         {
             if (!isServerRunning)
             {
-                serverThread = new Thread(new ThreadStart(ReceiveFileInThread));
+                serverThread = new Thread(() => ReceiveFile(progressBar, lblSpeed));
                 serverThread.IsBackground = true;
                 serverThread.Start();
                 isServerRunning = true;
@@ -128,13 +135,13 @@ namespace UTransfer
         {
             try
             {
-                listener = new TcpListener(System.Net.IPAddress.Any, 5001);
+                listener = new TcpListener(IPAddress.Any, 5001);
                 listener.Start();
                 Debug.WriteLine("Serveur en attente de connexion...");
 
                 while (isServerRunning)
                 {
-                    TcpClient client = listener.AcceptTcpClient();
+                    TcpClient client = listener.AcceptTcpClient(); // Accepte une connexion client
                     using (NetworkStream stream = client.GetStream())
                     {
                         byte[] fileNameBytes = new byte[1024];
@@ -142,7 +149,10 @@ namespace UTransfer
                         stream.Read(fileNameBytes, 0, fileNameBytes.Length);
                         stream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
 
-                        string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0');
+                        // Décoder le nom du fichier reçu de Base64
+                        string encodedFileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0');
+                        string fileName = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedFileName));
+
                         long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
 
                         if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
@@ -213,12 +223,6 @@ namespace UTransfer
                 Debug.WriteLine($"Erreur lors de la réception : {ex.Message}");
                 MessageBox.Show("Erreur lors de la réception : " + ex.Message);
             }
-        }
-
-        // Méthode pour gérer le thread de réception
-        private static void ReceiveFileInThread()
-        {
-            // Vous pouvez utiliser cette méthode pour démarrer le serveur dans un thread sans paramètres supplémentaires.
         }
     }
 }
