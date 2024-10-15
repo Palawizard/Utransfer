@@ -5,7 +5,6 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
-using System.Linq;
 
 namespace UTransfer
 {
@@ -169,7 +168,13 @@ namespace UTransfer
                                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
                                     if (bytesRead == 0 || isTransferCancelled)
                                     {
-                                        if (isTransferCancelled) MessageBox.Show("Transfert annulé.");
+                                        if (isTransferCancelled)
+                                        {
+                                            MessageBox.Show("Transfert annulé par l'expéditeur.");
+                                            fs.Close();  // Fermer le fichier
+                                            File.Delete(savePath);  // Supprimer le fichier partiellement reçu
+                                            return;
+                                        }
                                         break;
                                     }
                                     fs.Write(buffer, 0, bytesRead);
@@ -186,7 +191,8 @@ namespace UTransfer
                                 }
                             }
 
-                            if (!isTransferCancelled) MessageBox.Show($"Fichier reçu : {savePath}");
+                            if (!isTransferCancelled)
+                                MessageBox.Show($"Fichier reçu : {savePath}");
                         }
                     }
                     client.Close();
