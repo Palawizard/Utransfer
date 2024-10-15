@@ -14,7 +14,7 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
         private static bool isTransferCancelled = false;
-        private const int BufferSize = 262144; // Augmenté à 256 Ko pour tester
+        private static byte[] buffer = new byte[262144]; // Buffer partagé et réutilisé pour minimiser les allocations (256 Ko)
 
         // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
         public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
@@ -33,14 +33,14 @@ namespace UTransfer
                 {
                     client.NoDelay = true;  // Désactive l'algorithme de Nagle pour une meilleure performance
                     client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); // Active KeepAlive
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, BufferSize); // Augmenter le buffer d'envoi TCP
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, BufferSize); // Augmenter le buffer de réception TCP
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buffer.Length); // Buffer d'envoi augmenté
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buffer.Length); // Buffer de réception augmenté
 
                     client.Connect(ipAddress, 5001);  // Connexion au serveur
 
                     using (NetworkStream stream = client.GetStream())
                     {
-                        stream.ReadTimeout = 5000;  // Définit un délai d'attente pour éviter les blocages
+                        stream.ReadTimeout = 5000;  // Délai pour éviter les blocages
                         stream.WriteTimeout = 5000;
 
                         string fileName = Path.GetFileName(filePath);
@@ -48,10 +48,13 @@ namespace UTransfer
                         long fileSize = new FileInfo(filePath).Length;
                         byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
 
-                        stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
-                        stream.Write(fileNameBytes, 0, fileNameBytes.Length);
+                        // Utilisation d'un buffer partagé pour limiter les allocations inutiles
+                        Array.Clear(buffer, 0, buffer.Length);
+                        Array.Copy(fileSizeBytes, buffer, fileSizeBytes.Length);
+                        stream.Write(buffer, 0, fileSizeBytes.Length);
+                        Array.Copy(fileNameBytes, buffer, fileNameBytes.Length);
+                        stream.Write(buffer, 0, fileNameBytes.Length);
 
-                        byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 256 Ko
                         using (FileStream fs = File.OpenRead(filePath))
                         {
                             int bytesRead;
@@ -118,7 +121,7 @@ namespace UTransfer
                 isServerRunning = true;
                 serverThread = new Thread(() => ReceiveFile(progressBar, lblSpeed));
                 serverThread.IsBackground = true;
-                serverThread.Priority = ThreadPriority.Highest; // Priorité élevée pour les threads du serveur
+                serverThread.Priority = ThreadPriority.Highest; // Priorité maximale pour minimiser les interruptions
                 serverThread.Start();
                 MessageBox.Show("Serveur de réception démarré avec succès.");
             }
@@ -150,7 +153,7 @@ namespace UTransfer
                     TcpClient client = listener.AcceptTcpClient();
                     using (NetworkStream stream = client.GetStream())
                     {
-                        stream.ReadTimeout = 5000; // Définit un délai d'attente pour éviter les blocages
+                        stream.ReadTimeout = 5000; // Timeout pour éviter les blocages
                         stream.WriteTimeout = 5000;
 
                         byte[] fileSizeBytes = new byte[8];
@@ -173,7 +176,6 @@ namespace UTransfer
                             string savePath = Path.Combine(saveFolderPath, fileName);
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
-                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 256 Ko
                                 long totalBytesReceived = 0;
 
                                 Stopwatch stopwatch = new Stopwatch();
