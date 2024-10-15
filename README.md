@@ -51,6 +51,7 @@ UTransfer is a fast file transfer application designed to send and receive large
 ## Authors
 - **Palawi**: C# migration and development of all post-migration features.
 - **Statix**: Original idea, initial Python version development, general support.
+- **Aliz**: emotional support
 
 ## Contact
 For any questions, suggestions, or bug reports, please contact: **palawi.pro@gmail.com**
