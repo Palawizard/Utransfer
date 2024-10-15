@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
 
@@ -6,18 +7,19 @@ namespace UTransfer
 {
     public partial class SendFileForm : Form
     {
+        private bool isCancelled = false;
+        private Thread? sendFileThread;  // Déclarer comme nullable
+
         public SendFileForm()
         {
             InitializeComponent();
         }
 
-        // Méthode qui s'exécute lors du chargement de la fenêtre
         private void SendFileForm_Load(object sender, EventArgs e)
         {
             Debug.WriteLine("Fenêtre SendFileForm chargée.");
         }
 
-        // Méthode qui se déclenche lorsque l'utilisateur clique sur le bouton "Envoyer"
         private void btnEnvoyer_Click(object sender, EventArgs e)
         {
             string ipAddress = txtIpAddress.Text;  // Récupère l'adresse IP saisie
@@ -26,7 +28,19 @@ namespace UTransfer
             if (!string.IsNullOrEmpty(ipAddress) && !string.IsNullOrEmpty(filePath))
             {
                 Debug.WriteLine($"Envoi du fichier {filePath} à {ipAddress}");
-                NetworkHelper.SendFile(ipAddress, filePath);  // Appelle la méthode d'envoi dans NetworkHelper
+
+                // Réinitialiser la barre de progression avant l'envoi
+                progressBar.Value = 0;
+                lblSpeed.Text = "Vitesse : 0 kB/s";
+                isCancelled = false;
+
+                // Crée un thread séparé pour l'envoi du fichier
+                sendFileThread = new Thread(() =>
+                {
+                    NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
+                });
+                sendFileThread.IsBackground = true;
+                sendFileThread.Start();
             }
             else
             {
@@ -43,6 +57,13 @@ namespace UTransfer
                 return openFileDialog.FileName;  // Renvoie le chemin du fichier sélectionné
             }
             return string.Empty;
+        }
+
+        // Méthode pour annuler l'envoi
+        private void btnAnnuler_Click(object sender, EventArgs e)
+        {
+            isCancelled = true;  // Marquer le transfert comme annulé
+            MessageBox.Show("Envoi annulé.");
         }
     }
 }

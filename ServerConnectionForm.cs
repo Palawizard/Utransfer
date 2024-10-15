@@ -17,5 +17,10 @@ namespace UTransfer
             NetworkHelper.StopServer();
             this.Close();  // Ferme la fenêtre après l'arrêt du serveur
         }
+
+        private void ServerConnectionForm_Load(object sender, EventArgs e)
+        {
+
+        }
     }
 }
