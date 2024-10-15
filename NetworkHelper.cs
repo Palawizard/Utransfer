@@ -13,9 +13,9 @@ namespace UTransfer
         private static TcpListener? listener;
         private static bool isServerRunning = false;
         private static Thread? serverThread;
-        private static byte[] buffer = new byte[262144]; // Buffer partagé (256 Ko)
+        private static byte[] buffer = new byte[524288]; // 512 Ko pour un transfert plus rapide
 
-        // Méthode pour envoyer un fichier
+        // Méthode pour envoyer un fichier à une adresse IP spécifiée
         public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
         {
             try
@@ -30,11 +30,19 @@ namespace UTransfer
 
                 using (TcpClient client = new TcpClient())
                 {
-                    client.NoDelay = true; // Optimisation pour des transferts plus rapides
-                    client.Connect(ipAddress, 5001); // Connexion au serveur
+                    client.NoDelay = true;  // Désactive l'algorithme de Nagle pour une meilleure performance
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                    client.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.NoDelay, true);
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buffer.Length);
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buffer.Length);
+
+                    client.Connect(ipAddress, 5001);  // Connexion au serveur
 
                     using (NetworkStream stream = client.GetStream())
                     {
+                        stream.WriteTimeout = 5000;
+                        stream.ReadTimeout = 5000;
+
                         string fileName = Path.GetFileName(filePath);
                         byte[] fileNameBytes = System.Text.Encoding.UTF8.GetBytes(fileName);
                         long fileSize = new FileInfo(filePath).Length;
@@ -106,6 +114,7 @@ namespace UTransfer
                 isServerRunning = true;
                 serverThread = new Thread(() => ReceiveFile(progressBar, lblSpeed));
                 serverThread.IsBackground = true;
+                serverThread.Priority = ThreadPriority.Highest; // Priorité maximale pour minimiser les interruptions
                 serverThread.Start();
                 MessageBox.Show("Serveur de réception démarré.");
             }
@@ -136,6 +145,9 @@ namespace UTransfer
                     TcpClient client = listener.AcceptTcpClient();
                     using (NetworkStream stream = client.GetStream())
                     {
+                        stream.WriteTimeout = 5000;
+                        stream.ReadTimeout = 5000;
+
                         byte[] fileSizeBytes = new byte[8];
                         stream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
                         long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
