@@ -1,24 +1,23 @@
 ﻿using System;
 using System.Windows.Forms;
 using System.Diagnostics;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace UTransfer
 {
     public partial class SendFileForm : Form
     {
+        private bool isCancelled = false;
+
         public SendFileForm()
         {
             InitializeComponent();
         }
 
-        // Méthode qui s'exécute lors du chargement de la fenêtre
         private void SendFileForm_Load(object sender, EventArgs e)
         {
             Debug.WriteLine("Fenêtre SendFileForm chargée.");
         }
 
-        // Méthode qui se déclenche lorsque l'utilisateur clique sur le bouton "Envoyer"
         private void btnEnvoyer_Click(object sender, EventArgs e)
         {
             string ipAddress = txtIpAddress.Text;  // Récupère l'adresse IP saisie
@@ -31,9 +30,10 @@ namespace UTransfer
                 // Réinitialiser la barre de progression avant l'envoi
                 progressBar.Value = 0;
                 lblSpeed.Text = "Vitesse : 0 kB/s";
+                isCancelled = false;
 
                 // Appelle la méthode d'envoi dans NetworkHelper en passant la ProgressBar et le Label
-                NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed);
+                NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
             }
             else
             {
@@ -50,6 +50,13 @@ namespace UTransfer
                 return openFileDialog.FileName;  // Renvoie le chemin du fichier sélectionné
             }
             return string.Empty;
+        }
+
+        // Méthode pour annuler l'envoi
+        private void btnAnnuler_Click(object sender, EventArgs e)
+        {
+            isCancelled = true;  // Annule l'envoi
+            MessageBox.Show("Envoi annulé.");
         }
     }
 }

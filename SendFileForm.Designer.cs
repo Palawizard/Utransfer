@@ -17,6 +17,7 @@
         {
             this.txtIpAddress = new System.Windows.Forms.TextBox();
             this.btnEnvoyer = new System.Windows.Forms.Button();
+            this.btnAnnuler = new System.Windows.Forms.Button();
             this.labelIp = new System.Windows.Forms.Label();
             this.progressBar = new System.Windows.Forms.ProgressBar();
             this.lblSpeed = new System.Windows.Forms.Label();
@@ -39,6 +40,16 @@
             this.btnEnvoyer.UseVisualStyleBackColor = true;
             this.btnEnvoyer.Click += new System.EventHandler(this.btnEnvoyer_Click);
             // 
+            // btnAnnuler
+            // 
+            this.btnAnnuler.Location = new System.Drawing.Point(20, 170);
+            this.btnAnnuler.Name = "btnAnnuler";
+            this.btnAnnuler.Size = new System.Drawing.Size(150, 30);
+            this.btnAnnuler.TabIndex = 5;
+            this.btnAnnuler.Text = "Annuler";
+            this.btnAnnuler.UseVisualStyleBackColor = true;
+            this.btnAnnuler.Click += new System.EventHandler(this.btnAnnuler_Click);
+            // 
             // labelIp
             // 
             this.labelIp.AutoSize = true;
@@ -58,7 +69,7 @@
             // lblSpeed
             // 
             this.lblSpeed.AutoSize = true;
-            this.lblSpeed.Location = new System.Drawing.Point(20, 170);
+            this.lblSpeed.Location = new System.Drawing.Point(20, 210);
             this.lblSpeed.Name = "lblSpeed";
             this.lblSpeed.Size = new System.Drawing.Size(82, 17);
             this.lblSpeed.TabIndex = 4;
@@ -68,22 +79,23 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(284, 200);
+            this.ClientSize = new System.Drawing.Size(284, 250);
             this.Controls.Add(this.lblSpeed);
             this.Controls.Add(this.progressBar);
             this.Controls.Add(this.labelIp);
             this.Controls.Add(this.txtIpAddress);
+            this.Controls.Add(this.btnAnnuler);
             this.Controls.Add(this.btnEnvoyer);
             this.Name = "SendFileForm";
             this.Text = "Envoyer un fichier";
             this.Load += new System.EventHandler(this.SendFileForm_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
 
         private System.Windows.Forms.TextBox txtIpAddress;
         private System.Windows.Forms.Button btnEnvoyer;
+        private System.Windows.Forms.Button btnAnnuler;
         private System.Windows.Forms.Label labelIp;
         private System.Windows.Forms.ProgressBar progressBar;
         private System.Windows.Forms.Label lblSpeed;

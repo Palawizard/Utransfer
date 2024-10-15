@@ -14,9 +14,10 @@ namespace UTransfer
         private static TcpListener? listener;
         private static bool isServerRunning = false;
         private static Thread? serverThread;
+        private static bool isTransferCancelled = false;
 
         // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
-        public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed)
+        public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
         {
             try
             {
@@ -34,13 +35,11 @@ namespace UTransfer
 
                     using (NetworkStream stream = client.GetStream())
                     {
-                        // Envoyer le nom du fichier encodé pour éviter les caractères corrompus
                         string fileName = Path.GetFileName(filePath);
                         byte[] fileNameBytes = System.Text.Encoding.UTF8.GetBytes(fileName);
                         long fileSize = new FileInfo(filePath).Length;
                         byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
 
-                        // Envoyer la taille et le nom du fichier
                         stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
                         stream.Write(fileNameBytes, 0, fileNameBytes.Length);
 
@@ -52,18 +51,22 @@ namespace UTransfer
                             Stopwatch stopwatch = new Stopwatch();
                             stopwatch.Start();
 
-                            // Initialiser la barre de progression
-                            progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024))); // Taille en ko
+                            progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
 
                             while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
                             {
+                                if (isCancelled())
+                                {
+                                    Debug.WriteLine("Transfert annulé.");
+                                    MessageBox.Show("Transfert annulé.");
+                                    break;
+                                }
+
                                 stream.Write(buffer, 0, bytesRead);
                                 totalBytesSent += bytesRead;
 
-                                // Mise à jour de la barre de progression
                                 progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
 
-                                // Calculer la vitesse en MB/s
                                 double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                                 if (elapsedSeconds > 0)
                                 {
@@ -94,11 +97,11 @@ namespace UTransfer
             }
         }
 
-        // Méthode pour démarrer le serveur dans un thread séparé avec ProgressBar et Label de vitesse
         public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed)
         {
             if (!isServerRunning)
             {
+                isTransferCancelled = false;
                 isServerRunning = true;
                 serverThread = new Thread(() => ReceiveFile(progressBar, lblSpeed));
                 serverThread.IsBackground = true;
@@ -107,12 +110,12 @@ namespace UTransfer
             }
         }
 
-        // Méthode pour arrêter le serveur
         public static void StopServer()
         {
             if (listener != null && isServerRunning)
             {
                 isServerRunning = false;
+                isTransferCancelled = true; // Arrête les transferts en cours
                 listener.Stop();
                 listener = null;
                 Debug.WriteLine("Le serveur a été arrêté.");
@@ -120,7 +123,6 @@ namespace UTransfer
             }
         }
 
-        // Méthode pour recevoir un fichier avec une ProgressBar et un Label de vitesse
         public static void ReceiveFile(ProgressBar progressBar, Label lblSpeed)
         {
             try
@@ -131,7 +133,7 @@ namespace UTransfer
 
                 while (isServerRunning)
                 {
-                    TcpClient client = listener.AcceptTcpClient(); // Accepte une connexion client
+                    TcpClient client = listener.AcceptTcpClient();
                     using (NetworkStream stream = client.GetStream())
                     {
                         byte[] fileSizeBytes = new byte[8];
@@ -146,7 +148,6 @@ namespace UTransfer
                         {
                             string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "fichiers_recus");
 
-                            // Vérifier et créer le dossier "fichiers_recus" s'il n'existe pas
                             if (!Directory.Exists(saveFolderPath))
                             {
                                 Directory.CreateDirectory(saveFolderPath);
@@ -161,33 +162,31 @@ namespace UTransfer
                                 Stopwatch stopwatch = new Stopwatch();
                                 stopwatch.Start();
 
-                                // Initialiser la barre de progression
                                 progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
 
                                 while (totalBytesReceived < fileSize)
                                 {
                                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                                    if (bytesRead == 0)
+                                    if (bytesRead == 0 || isTransferCancelled)
                                     {
+                                        if (isTransferCancelled) MessageBox.Show("Transfert annulé.");
                                         break;
                                     }
                                     fs.Write(buffer, 0, bytesRead);
                                     totalBytesReceived += bytesRead;
 
-                                    // Mise à jour de la barre de progression
                                     progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesReceived / 1024)));
 
-                                    // Calculer la vitesse en MB/s
                                     double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                                     if (elapsedSeconds > 0)
                                     {
-                                        double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds; // en MB/s
+                                        double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
                                         lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
                                     }
                                 }
                             }
 
-                            MessageBox.Show($"Fichier reçu : {savePath}");
+                            if (!isTransferCancelled) MessageBox.Show($"Fichier reçu : {savePath}");
                         }
                     }
                     client.Close();
