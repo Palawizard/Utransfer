@@ -26,8 +26,8 @@ UTransfer is a fast file transfer application designed to send and receive large
 
 2. **Sending a File**:
    - Click on the "Send" button in the main interface.
-   - Select a file from your system via the file explorer.
    - Enter the recipient's IP address (through Hamachi or an open port).
+   - Select a file from your system via the file explorer.
    - Click "Send" and monitor the progress using the loading bar.
 
 3. **Receiving a File**:
