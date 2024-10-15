@@ -1,10 +1,10 @@
 # UTransfer
 
 ## Description
-UTransfer is a fast file transfer application designed to send and receive large files over a local network. Users can monitor transfer progress with a loading bar and real-time speed display.
+UTransfer is a fast file transfer application designed to send and receive large files between computers that are geographically distant. This is achieved by using **Hamachi** or by manually **opening port 5001** for direct connections.
 
 ## Main Features
-- Send and receive files over a local network.
+- Send and receive files between computers over the internet using Hamachi or port forwarding.
 - Progress tracking with a loading bar.
 - Real-time speed display (in MB/s).
 - Cancel transfers at any time from either the sender or receiver.
@@ -21,12 +21,13 @@ UTransfer is a fast file transfer application designed to send and receive large
 
 ## Usage Instructions
 1. **Using Hamachi or Opening Port 5001**:
-   - The app is designed to work over a local network via Hamachi or by opening port 5001 on your network to allow connections.
+   - The app is designed specifically to work over long-distance connections, not just local networks.
+   - Use **Hamachi** to create a virtual LAN, or **open port 5001** on your network to allow direct file transfers.
 
 2. **Sending a File**:
    - Click on the "Send" button in the main interface.
    - Select a file from your system via the file explorer.
-   - Enter the recipient's IP address.
+   - Enter the recipient's IP address (through Hamachi or an open port).
    - Click "Send" and monitor the progress using the loading bar.
 
 3. **Receiving a File**:
