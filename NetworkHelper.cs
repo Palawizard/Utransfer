@@ -14,6 +14,7 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
         private static bool isTransferCancelled = false;
+        private const int BufferSize = 8192; // Augmenté à 8 Ko
 
         // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
         public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
@@ -42,7 +43,7 @@ namespace UTransfer
                         stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
                         stream.Write(fileNameBytes, 0, fileNameBytes.Length);
 
-                        byte[] buffer = new byte[1024];
+                        byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 8 Ko
                         using (FileStream fs = File.OpenRead(filePath))
                         {
                             int bytesRead;
@@ -160,7 +161,7 @@ namespace UTransfer
                             string savePath = Path.Combine(saveFolderPath, fileName);
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
-                                byte[] buffer = new byte[1024];
+                                byte[] buffer = new byte[BufferSize]; // Utilisation d'un buffer de 8 Ko
                                 long totalBytesReceived = 0;
 
                                 Stopwatch stopwatch = new Stopwatch();
