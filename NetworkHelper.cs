@@ -138,7 +138,7 @@ namespace UTransfer
                                 progressBar.Invoke((MethodInvoker)(() =>
                                 {
                                     progressBar.Value = 0;
-                                    progressBar.Maximum = (int)(fileSize / 1024);
+                                    progressBar.Maximum = (int)Math.Max(fileSize, 1); // Assure que le maximum est au moins 1
                                 }));
 
                                 while (totalBytesReceived < fileSize)
@@ -158,11 +158,16 @@ namespace UTransfer
                                     fs.Write(buffer, 0, bytesRead);
                                     totalBytesReceived += bytesRead;
 
-                                    progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesReceived / 1024)));
+                                    // Mise à jour de la barre de progression et de la vitesse
+                                    long bytesReceivedCopy = totalBytesReceived;
+                                    progressBar.Invoke((MethodInvoker)(() =>
+                                    {
+                                        progressBar.Value = (int)Math.Min(bytesReceivedCopy, progressBar.Maximum);
+                                    }));
                                     double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                                     if (elapsedSeconds > 0)
                                     {
-                                        double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
+                                        double speed = (bytesReceivedCopy / 1024.0 / 1024.0) / elapsedSeconds;
                                         lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
                                     }
                                 }
@@ -263,7 +268,7 @@ namespace UTransfer
                                     progressBar.Invoke((MethodInvoker)(() =>
                                     {
                                         progressBar.Value = 0;
-                                        progressBar.Maximum = (int)(fileSize / 1024);
+                                        progressBar.Maximum = (int)Math.Max(fileSize, 1); // Assure que le maximum est au moins 1
                                     }));
 
                                     // Envoie du fichier
@@ -302,11 +307,15 @@ namespace UTransfer
                                         totalBytesSent += bytesRead;
 
                                         // Mise à jour de la barre de progression et de la vitesse
-                                        progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
+                                        long bytesSentCopy = totalBytesSent;
+                                        progressBar.Invoke((MethodInvoker)(() =>
+                                        {
+                                            progressBar.Value = (int)Math.Min(bytesSentCopy, progressBar.Maximum);
+                                        }));
                                         double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                                         if (elapsedSeconds > 0)
                                         {
-                                            double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // Vitesse en MB/s
+                                            double speed = (bytesSentCopy / 1024.0 / 1024.0) / elapsedSeconds; // Vitesse en MB/s
                                             lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
                                         }
                                     }
@@ -356,6 +365,7 @@ namespace UTransfer
             progressBar.Invoke((MethodInvoker)(() =>
             {
                 progressBar.Value = 0;
+                progressBar.Maximum = 100; // Valeur par défaut pour éviter les problèmes
                 lblSpeed.Text = "Vitesse : 0 MB/s";
             }));
         }
