@@ -111,7 +111,11 @@ namespace UTransfer
                             Stopwatch stopwatch = new Stopwatch();
                             stopwatch.Start();
 
-                            progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
+                            progressBar.Invoke((MethodInvoker)(() =>
+                            {
+                                progressBar.Value = 0;
+                                progressBar.Maximum = (int)(fileSize / 1024);
+                            }));
 
                             while (totalBytesReceived < fileSize)
                             {
@@ -157,15 +161,24 @@ namespace UTransfer
             }
         }
 
-        // Method to send multiple files concurrently
+        // Method to send multiple files sequentially
         public static void SendFiles(string ipAddress, List<string> filePaths, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
         {
-            foreach (string filePath in filePaths)
+            Thread sendThread = new Thread(() =>
             {
-                Thread sendThread = new Thread(() => SendFile(ipAddress, filePath, progressBar, lblSpeed, isCancelled));
-                sendThread.IsBackground = true;
-                sendThread.Start();
-            }
+                foreach (string filePath in filePaths)
+                {
+                    if (isCancelled())
+                    {
+                        MessageBox.Show("Sending canceled.");
+                        break;
+                    }
+
+                    SendFile(ipAddress, filePath, progressBar, lblSpeed, isCancelled);
+                }
+            });
+            sendThread.IsBackground = true;
+            sendThread.Start();
         }
 
         // Method to send a single file

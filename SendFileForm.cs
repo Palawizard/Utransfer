@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
 
@@ -9,7 +8,6 @@ namespace UTransfer
     public partial class SendFileForm : Form
     {
         private bool isCancelled = false;
-        private List<Thread> sendFileThreads = new List<Thread>();
 
         public SendFileForm()
         {
@@ -35,7 +33,7 @@ namespace UTransfer
                 lblSpeed.Text = "Speed: 0 kB/s";
                 isCancelled = false;
 
-                // Use the SendFiles method to send multiple files
+                // Use the SendFiles method to send multiple files sequentially
                 NetworkHelper.SendFiles(ipAddress, filePaths, progressBar, lblSpeed, () => isCancelled);
             }
             else
