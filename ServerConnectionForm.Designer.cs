@@ -16,7 +16,7 @@
         private void InitializeComponent()
         {
             labelMessage = new Label();
-            buttonArreter = new Button();
+            buttonStop = new Button();
             SuspendLayout();
             // 
             // labelMessage
@@ -24,33 +24,33 @@
             labelMessage.AutoSize = true;
             labelMessage.Location = new Point(40, 30);
             labelMessage.Name = "labelMessage";
-            labelMessage.Size = new Size(186, 15);
+            labelMessage.Size = new Size(200, 15);
             labelMessage.TabIndex = 0;
-            labelMessage.Text = "Serveur en attente de connexion...";
+            labelMessage.Text = "Server waiting for connection...";
             // 
-            // buttonArreter
+            // buttonStop
             // 
-            buttonArreter.Location = new Point(90, 70);
-            buttonArreter.Name = "buttonArreter";
-            buttonArreter.Size = new Size(100, 30);
-            buttonArreter.TabIndex = 1;
-            buttonArreter.Text = "Arrêter";
-            buttonArreter.UseVisualStyleBackColor = true;
-            buttonArreter.Click += buttonArreter_Click;
+            buttonStop.Location = new Point(90, 70);
+            buttonStop.Name = "buttonStop";
+            buttonStop.Size = new Size(100, 30);
+            buttonStop.TabIndex = 1;
+            buttonStop.Text = "Stop";
+            buttonStop.UseVisualStyleBackColor = true;
+            buttonStop.Click += buttonStop_Click;
             // 
             // ServerConnectionForm
             // 
             ClientSize = new Size(284, 131);
-            Controls.Add(buttonArreter);
+            Controls.Add(buttonStop);
             Controls.Add(labelMessage);
             Name = "ServerConnectionForm";
-            Text = "Connexion au serveur";
+            Text = "Server Connection";
             Load += ServerConnectionForm_Load;
             ResumeLayout(false);
             PerformLayout();
         }
 
         private System.Windows.Forms.Label labelMessage;
-        private System.Windows.Forms.Button buttonArreter;
+        private System.Windows.Forms.Button buttonStop;
     }
 }

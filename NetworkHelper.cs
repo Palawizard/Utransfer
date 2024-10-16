@@ -13,24 +13,31 @@ namespace UTransfer
         private static TcpListener? listener;
         private static bool isServerRunning = false;
         private static Thread? serverThread;
-        private static bool isTransferCancelled = false;
+        private static TcpClient? currentClient; // Reference to the current client to force closure when stopping the server
+        private static byte[] buffer = new byte[524288]; // 512 KB for faster transfer
 
-        // Méthode pour envoyer un fichier à une adresse IP spécifiée avec une ProgressBar et un Label de vitesse
+        // Method to send a file to a specified IP address
         public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
         {
             try
             {
                 if (!File.Exists(filePath))
                 {
-                    MessageBox.Show("Le fichier sélectionné n'existe pas.");
+                    MessageBox.Show("The selected file does not exist.");
                     return;
                 }
 
-                Debug.WriteLine($"Tentative de connexion à {ipAddress} pour envoyer le fichier {filePath}.");
+                Debug.WriteLine($"Attempting to connect to {ipAddress} to send the file {filePath}.");
 
                 using (TcpClient client = new TcpClient())
                 {
-                    client.Connect(ipAddress, 5001); // Connexion au serveur
+                    client.NoDelay = true;  // Disable Nagle's algorithm for better performance
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                    client.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.NoDelay, true);
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buffer.Length);
+                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buffer.Length);
+
+                    client.Connect(ipAddress, 5001);  // Connect to the server
 
                     using (NetworkStream stream = client.GetStream())
                     {
@@ -39,6 +46,7 @@ namespace UTransfer
                         long fileSize = new FileInfo(filePath).Length;
                         byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
 
+                        // Send the file size and name
                         stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
                         stream.Write(fileNameBytes, 0, fileNameBytes.Length);
 
@@ -59,48 +67,49 @@ namespace UTransfer
                                     Debug.WriteLine("Transfert annulé.");
                                     byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");  // Message spécial d'annulation
                                     stream.Write(cancelMessage, 0, cancelMessage.Length);
-                                    MessageBox.Show("Transfert annulé.");
-                                    break;
+                                    MessageBox.Show("Transfer canceled.");
+                                    ResetProgressBar(progressBar, lblSpeed);
+                                    return;
                                 }
 
                                 stream.Write(buffer, 0, bytesRead);
                                 totalBytesSent += bytesRead;
 
+                                // Update progress bar and speed
                                 progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
 
                                 double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                                 if (elapsedSeconds > 0)
                                 {
-                                    double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // en MB/s
-                                    lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
+                                    double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // MB/s
+                                    lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
                                 }
                             }
                         }
 
-                        if (!isCancelled())
-                        {
-                            MessageBox.Show("Fichier envoyé avec succès.");
-                        }
+                        MessageBox.Show("File sent successfully.");
+                        ResetProgressBar(progressBar, lblSpeed);
                     }
                 }
             }
             catch (SocketException ex)
             {
-                Debug.WriteLine($"Erreur de socket : {ex.Message}");
-                MessageBox.Show("Erreur de connexion au serveur. Vérifiez que le serveur est en ligne.", "Erreur de connexion");
+                Debug.WriteLine($"Socket error: {ex.Message}");
+                MessageBox.Show("Error connecting to the server. Ensure the server is online.");
             }
             catch (IOException ex)
             {
-                Debug.WriteLine($"Erreur d'entrée/sortie : {ex.Message}");
-                MessageBox.Show("Erreur lors de la lecture du fichier. Assurez-vous que le fichier est accessible.", "Erreur de fichier");
+                Debug.WriteLine($"I/O error: {ex.Message}");
+                MessageBox.Show("Error reading the file.");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Erreur inconnue lors de l'envoi : {ex.Message}");
-                MessageBox.Show("Une erreur s'est produite lors de l'envoi du fichier : " + ex.Message, "Erreur");
+                Debug.WriteLine($"Unknown error: {ex.Message}");
+                MessageBox.Show("Error sending the file.");
             }
         }
 
+        // Starts the receiving server
         public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed)
         {
             if (!isServerRunning)
@@ -109,11 +118,13 @@ namespace UTransfer
                 isServerRunning = true;
                 serverThread = new Thread(() => ReceiveFile(progressBar, lblSpeed));
                 serverThread.IsBackground = true;
+                serverThread.Priority = ThreadPriority.Highest; // Max priority to minimize interruptions
                 serverThread.Start();
-                MessageBox.Show("Serveur de réception démarré avec succès.");
+                MessageBox.Show("Receiving server started.");
             }
         }
 
+        // Stops the server
         public static void StopServer()
         {
             if (listener != null && isServerRunning)
@@ -121,12 +132,20 @@ namespace UTransfer
                 isServerRunning = false;
                 isTransferCancelled = true; // Arrête les transferts en cours
                 listener.Stop();
+
+                // If a transfer is in progress, close the connection
+                if (currentClient != null && currentClient.Connected)
+                {
+                    currentClient.Close();
+                    currentClient = null;  // Reset the client reference
+                }
+
                 listener = null;
-                Debug.WriteLine("Le serveur a été arrêté.");
-                MessageBox.Show("Le serveur a été arrêté.");
+                MessageBox.Show("The server has been stopped.");
             }
         }
 
+        // Method to receive a file
         public static void ReceiveFile(ProgressBar progressBar, Label lblSpeed)
         {
             try
@@ -138,6 +157,7 @@ namespace UTransfer
                 while (isServerRunning)
                 {
                     TcpClient client = listener.AcceptTcpClient();
+                    currentClient = client; // Store the active connection
                     using (NetworkStream stream = client.GetStream())
                     {
                         byte[] fileSizeBytes = new byte[8];
@@ -146,17 +166,12 @@ namespace UTransfer
 
                         byte[] fileNameBytes = new byte[1024];
                         stream.Read(fileNameBytes, 0, fileNameBytes.Length);
-                        string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0');
+                        string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0').Replace("\0", ""); // Remove null characters
 
-                        if (MessageBox.Show($"Recevoir le fichier {fileName} ?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                        if (MessageBox.Show($"Receive the file {fileName}?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
                         {
-                            string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "fichiers_recus");
-
-                            if (!Directory.Exists(saveFolderPath))
-                            {
-                                Directory.CreateDirectory(saveFolderPath);
-                            }
-
+                            string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "received_files");
+                            Directory.CreateDirectory(saveFolderPath);
                             string savePath = Path.Combine(saveFolderPath, fileName);
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
@@ -177,8 +192,9 @@ namespace UTransfer
                                     if (message.Contains("CANCELLED"))
                                     {
                                         fs.Close();
-                                        File.Delete(savePath);  // Supprime le fichier partiellement reçu
-                                        MessageBox.Show("Le transfert a été annulé par l'envoyeur.");
+                                        File.Delete(savePath);
+                                        MessageBox.Show("Transfer canceled.");
+                                        ResetProgressBar(progressBar, lblSpeed);
                                         return;
                                     }
 
@@ -196,34 +212,38 @@ namespace UTransfer
                                     if (elapsedSeconds > 0)
                                     {
                                         double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
-                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
+                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
                                     }
                                 }
                             }
 
-                            if (!isTransferCancelled) MessageBox.Show($"Fichier reçu : {savePath}");
+                            MessageBox.Show($"File received: {savePath}");
+                            ResetProgressBar(progressBar, lblSpeed);
                         }
                     }
                     client.Close();
+                    currentClient = null;  // Reset the reference after the transfer
                 }
             }
             catch (SocketException ex)
             {
-                if (!isServerRunning)
-                {
-                    Debug.WriteLine("Le serveur a été arrêté proprement.");
-                }
-                else
-                {
-                    Debug.WriteLine($"Erreur de socket : {ex.Message}");
-                    MessageBox.Show("Erreur lors de la réception du fichier : " + ex.Message);
-                }
+                Debug.WriteLine($"Socket error: {ex.Message}");
+                MessageBox.Show("Error receiving the file.");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Erreur lors de la réception : {ex.Message}");
-                MessageBox.Show("Erreur lors de la réception : " + ex.Message);
+                Debug.WriteLine($"Receiving error: {ex.Message}");
+                MessageBox.Show("Error receiving the file.");
             }
+        }
+
+        private static void ResetProgressBar(ProgressBar progressBar, Label lblSpeed)
+        {
+            progressBar.Invoke((MethodInvoker)(() =>
+            {
+                progressBar.Value = 0;
+                lblSpeed.Text = "Speed: 0 MB/s";
+            }));
         }
     }
 }
