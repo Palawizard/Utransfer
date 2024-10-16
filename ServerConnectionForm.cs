@@ -10,12 +10,12 @@ namespace UTransfer
             InitializeComponent();
         }
 
-        // Cette méthode sera appelée quand l'utilisateur clique sur "Arrêter"
-        private void buttonArreter_Click(object sender, EventArgs e)
+        // This method is called when the user clicks "Stop"
+        private void buttonStop_Click(object sender, EventArgs e)
         {
-            // Arrêter le serveur de réception
+            // Stop the receiving server
             NetworkHelper.StopServer();
-            this.Close();  // Ferme la fenêtre après l'arrêt du serveur
+            this.Close();  // Close the window after stopping the server
         }
 
         private void ServerConnectionForm_Load(object sender, EventArgs e)
@@ -23,4 +23,4 @@ namespace UTransfer
 
         }
     }
-}
+} //for commit

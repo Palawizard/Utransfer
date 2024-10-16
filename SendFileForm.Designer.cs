@@ -16,8 +16,8 @@
         private void InitializeComponent()
         {
             txtIpAddress = new TextBox();
-            btnEnvoyer = new Button();
-            btnAnnuler = new Button();
+            btnSend = new Button();
+            btnCancel = new Button();
             labelIp = new Label();
             progressBar = new ProgressBar();
             lblSpeed = new Label();
@@ -30,38 +30,39 @@
             txtIpAddress.Size = new Size(176, 23);
             txtIpAddress.TabIndex = 0;
             // 
-            // btnEnvoyer
+            // btnSend
             // 
-            btnEnvoyer.Location = new Point(58, 138);
-            btnEnvoyer.Name = "btnEnvoyer";
-            btnEnvoyer.Size = new Size(131, 28);
-            btnEnvoyer.TabIndex = 1;
-            btnEnvoyer.Text = "Envoyer";
-            btnEnvoyer.UseVisualStyleBackColor = true;
-            btnEnvoyer.Click += btnEnvoyer_Click;
+            btnSend.Location = new Point(58, 138);
+            btnSend.Name = "btnSend";
+            btnSend.Size = new Size(131, 28);
+            btnSend.TabIndex = 1;
+            btnSend.Text = "Send";
+            btnSend.UseVisualStyleBackColor = true;
+            btnSend.Click += btnSend_Click;
             // 
-            // btnAnnuler
+            // btnCancel
             // 
-            btnAnnuler.Location = new Point(58, 172);
-            btnAnnuler.Name = "btnAnnuler";
-            btnAnnuler.Size = new Size(131, 28);
-            btnAnnuler.TabIndex = 5;
-            btnAnnuler.Text = "Annuler";
-            btnAnnuler.UseVisualStyleBackColor = true;
-            btnAnnuler.Click += btnAnnuler_Click;
+            btnCancel.Location = new Point(58, 172);
+            btnCancel.Name = "btnCancel";
+            btnCancel.Size = new Size(131, 28);
+            btnCancel.TabIndex = 5;
+            btnCancel.Text = "Cancel";
+            btnCancel.UseVisualStyleBackColor = true;
+            btnCancel.Click += btnCancel_Click;
             // 
             // labelIp
             // 
             labelIp.AutoSize = true;
+            labelIp.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             labelIp.Location = new Point(34, 29);
             labelIp.Name = "labelIp";
-            labelIp.Size = new Size(94, 15);
+            labelIp.Size = new Size(114, 15);
             labelIp.TabIndex = 2;
-            labelIp.Text = "Adresse IP Amis:";
+            labelIp.Text = "Friend's IP Address:";
             // 
             // progressBar
             // 
-            progressBar.Location = new Point(34, 85);
+            progressBar.Location = new Point(34, 76);
             progressBar.Name = "progressBar";
             progressBar.Size = new Size(175, 23);
             progressBar.TabIndex = 3;
@@ -69,11 +70,11 @@
             // lblSpeed
             // 
             lblSpeed.AutoSize = true;
-            lblSpeed.Location = new Point(34, 111);
+            lblSpeed.Location = new Point(34, 102);
             lblSpeed.Name = "lblSpeed";
-            lblSpeed.Size = new Size(84, 15);
+            lblSpeed.Size = new Size(77, 15);
             lblSpeed.TabIndex = 4;
-            lblSpeed.Text = "Vitesse : 0 kB/s";
+            lblSpeed.Text = "Speed: 0 kB/s";
             // 
             // SendFileForm
             // 
@@ -84,20 +85,21 @@
             Controls.Add(progressBar);
             Controls.Add(labelIp);
             Controls.Add(txtIpAddress);
-            Controls.Add(btnAnnuler);
-            Controls.Add(btnEnvoyer);
+            Controls.Add(btnCancel);
+            Controls.Add(btnSend);
             Name = "SendFileForm";
-            Text = "Envoyer un fichier";
+            Text = "Send a File";
             Load += SendFileForm_Load;
             ResumeLayout(false);
             PerformLayout();
         }
 
         private System.Windows.Forms.TextBox txtIpAddress;
-        private System.Windows.Forms.Button btnEnvoyer;
-        private System.Windows.Forms.Button btnAnnuler;
+        private System.Windows.Forms.Button btnSend;
+        private System.Windows.Forms.Button btnCancel;
         private System.Windows.Forms.Label labelIp;
         private System.Windows.Forms.ProgressBar progressBar;
         private System.Windows.Forms.Label lblSpeed;
     }
 }
+//for commit

@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Threading;
+using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Diagnostics;
 
@@ -8,7 +8,6 @@ namespace UTransfer
     public partial class SendFileForm : Form
     {
         private bool isCancelled = false;
-        private Thread? sendFileThread;  // Déclarer comme nullable
 
         public SendFileForm()
         {
@@ -17,54 +16,51 @@ namespace UTransfer
 
         private void SendFileForm_Load(object sender, EventArgs e)
         {
-            Debug.WriteLine("Fenêtre SendFileForm chargée.");
+            Debug.WriteLine("SendFileForm window loaded.");
         }
 
-        private void btnEnvoyer_Click(object sender, EventArgs e)
+        private void btnSend_Click(object sender, EventArgs e)
         {
-            string ipAddress = txtIpAddress.Text;  // Récupère l'adresse IP saisie
-            string filePath = SelectFile();  // Ouvre une boîte de dialogue pour sélectionner un fichier
+            string ipAddress = txtIpAddress.Text;  // Get the entered IP address
+            List<string> filePaths = SelectFiles();  // Open a dialog to select files
 
-            if (!string.IsNullOrEmpty(ipAddress) && !string.IsNullOrEmpty(filePath))
+            if (!string.IsNullOrEmpty(ipAddress) && filePaths.Count > 0)
             {
-                Debug.WriteLine($"Envoi du fichier {filePath} à {ipAddress}");
+                Debug.WriteLine($"Sending files to {ipAddress}");
 
-                // Réinitialiser la barre de progression avant l'envoi
+                // Reset the progress bar before sending
                 progressBar.Value = 0;
-                lblSpeed.Text = "Vitesse : 0 kB/s";
+                lblSpeed.Text = "Speed: 0 kB/s";
                 isCancelled = false;
-
-                // Crée un thread séparé pour l'envoi du fichier
-                sendFileThread = new Thread(() =>
-                {
-                    // Utilise la méthode SendFile (et non SendFileAsync)
-                    NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
-                });
-                sendFileThread.IsBackground = true;
-                sendFileThread.Start();
+                // Use the SendFiles method to send multiple files sequentially
+                NetworkHelper.SendFiles(ipAddress, filePaths, progressBar, lblSpeed, () => isCancelled);
             }
             else
             {
-                MessageBox.Show("Veuillez entrer une adresse IP valide et sélectionner un fichier.");
+                MessageBox.Show("Please enter a valid IP address and select at least one file.");
             }
         }
 
-        // Méthode pour ouvrir une boîte de dialogue pour sélectionner un fichier
-        private string SelectFile()
+        // Method to open a dialog to select multiple files
+        private List<string> SelectFiles()
         {
-            OpenFileDialog openFileDialog = new OpenFileDialog();
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Multiselect = true  // Allow multiple file selection
+            };
+
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                return openFileDialog.FileName;  // Renvoie le chemin du fichier sélectionné
+                return new List<string>(openFileDialog.FileNames);  // Return the selected files' paths
             }
-            return string.Empty;
+            return new List<string>();
         }
 
-        // Méthode pour annuler l'envoi
-        private void btnAnnuler_Click(object sender, EventArgs e)
+        // Method to cancel the sending process
+        private void btnCancel_Click(object sender, EventArgs e)
         {
-            isCancelled = true;  // Marquer le transfert comme annulé
-            MessageBox.Show("Envoi annulé.");
+            isCancelled = true;  // Mark the transfer as canceled
+            MessageBox.Show("Sending canceled.");
         }
     }
-}
+} //for commit

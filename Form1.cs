@@ -4,45 +4,49 @@ using System.Diagnostics;
 
 namespace UTransfer
 {
-    public partial class Form1 : Form
+    public partial class MainForm : Form
     {
-        public Form1()
+        public MainForm()
         {
             InitializeComponent();
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private void MainForm_Load(object sender, EventArgs e)
         {
-            Debug.WriteLine("Fenêtre principale chargée.");
-            progressBar1.Visible = false;  // Cache la barre de progression au départ
-            lblSpeed.Visible = false;  // Cache également le label de vitesse au départ
+            Debug.WriteLine("Main window loaded.");
+            // progressBar1 and lblSpeed will remain visible even when the server is not started
+            progressBar1.Value = 0;  // Reset the progress bar to 0 initially
+            lblSpeed.Text = "Speed: 0 kB/s";  // Set the initial speed label
         }
 
-        private void buttonEnvoyer_Click(object sender, EventArgs e)
+        private void buttonSend_Click(object sender, EventArgs e)
         {
-            Debug.WriteLine("Bouton 'Envoyer' cliqué.");
+            Debug.WriteLine("Send button clicked.");
             SendFileForm sendForm = new SendFileForm();
-            sendForm.ShowDialog();  // Ouvre la fenêtre d'envoi
+            sendForm.ShowDialog();  // Open the send file window
         }
 
-        private void buttonRecevoir_Click(object sender, EventArgs e)
+        private void buttonReceive_Click(object sender, EventArgs e)
         {
-            Debug.WriteLine("Bouton 'Recevoir' cliqué. Démarrage du serveur de réception.");
+            Debug.WriteLine("Receive button clicked. Starting the receiving server.");
 
-            // Affiche la barre de progression et le label de vitesse uniquement lorsque le serveur est démarré
-            progressBar1.Visible = true;
-            lblSpeed.Visible = true;
+            // Start the server without affecting the visibility of the progress bar or speed label
             NetworkHelper.RunServerInThread(progressBar1, lblSpeed);
         }
 
-        private void buttonArreter_Click(object sender, EventArgs e)
+        private void buttonStop_Click(object sender, EventArgs e)
         {
-            Debug.WriteLine("Bouton 'Arrêter' cliqué. Arrêt du serveur.");
-            NetworkHelper.StopServer();  // Arrête le serveur et affiche un message de confirmation
+            Debug.WriteLine("Stop button clicked. Stopping the server.");
+            NetworkHelper.StopServer();  // Stop the server and show a confirmation message
 
-            // Cache la barre de progression et le label de vitesse après l'arrêt du serveur
-            progressBar1.Visible = false;
-            lblSpeed.Visible = false;
+            // Keep the progress bar and speed label visible even after stopping the server
+            progressBar1.Value = 0;  // Reset the progress bar after stopping the server
+            lblSpeed.Text = "Speed: 0 kB/s";  // Reset the speed label after stopping the server
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
         }
     }
-}
+} //for commit

@@ -1,6 +1,6 @@
 ﻿namespace UTransfer
 {
-    partial class Form1
+    partial class MainForm
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -15,47 +15,50 @@
 
         private void InitializeComponent()
         {
-            buttonEnvoyer = new Button();
-            buttonRecevoir = new Button();
-            buttonArreter = new Button();
+            buttonSend = new Button();
+            buttonReceive = new Button();
+            buttonStop = new Button();
             progressBar1 = new ProgressBar();
             lblSpeed = new Label();
+            label1 = new Label();
             SuspendLayout();
             // 
-            // buttonEnvoyer
+            // buttonSend
             // 
-            buttonEnvoyer.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            buttonEnvoyer.Location = new Point(79, 59);
-            buttonEnvoyer.Name = "buttonEnvoyer";
-            buttonEnvoyer.Size = new Size(131, 25);
-            buttonEnvoyer.TabIndex = 0;
-            buttonEnvoyer.Text = "Envoyer";
-            buttonEnvoyer.UseVisualStyleBackColor = true;
-            buttonEnvoyer.Click += buttonEnvoyer_Click;
+            buttonSend.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            buttonSend.Location = new Point(72, 85);
+            buttonSend.Name = "buttonSend";
+            buttonSend.Size = new Size(131, 25);
+            buttonSend.TabIndex = 0;
+            buttonSend.Text = "Send";
+            buttonSend.UseVisualStyleBackColor = true;
+            buttonSend.Click += buttonSend_Click;
             // 
-            // buttonRecevoir
+            // buttonReceive
             // 
-            buttonRecevoir.Location = new Point(79, 90);
-            buttonRecevoir.Name = "buttonRecevoir";
-            buttonRecevoir.Size = new Size(131, 28);
-            buttonRecevoir.TabIndex = 1;
-            buttonRecevoir.Text = "Lancer le Serveur";
-            buttonRecevoir.UseVisualStyleBackColor = true;
-            buttonRecevoir.Click += buttonRecevoir_Click;
+
+            buttonReceive.Location = new Point(72, 116);
+            buttonReceive.Name = "buttonReceive";
+            buttonReceive.Size = new Size(131, 28);
+            buttonReceive.TabIndex = 1;
+            buttonReceive.Text = "Start Server";
+            buttonReceive.UseVisualStyleBackColor = true;
+            buttonReceive.Click += buttonReceive_Click;
             // 
-            // buttonArreter
+            // buttonStop
             // 
-            buttonArreter.Location = new Point(79, 124);
-            buttonArreter.Name = "buttonArreter";
-            buttonArreter.Size = new Size(131, 28);
-            buttonArreter.TabIndex = 2;
-            buttonArreter.Text = "Arrêter le Serveur";
-            buttonArreter.UseVisualStyleBackColor = true;
-            buttonArreter.Click += buttonArreter_Click;
+
+            buttonStop.Location = new Point(72, 150);
+            buttonStop.Name = "buttonStop";
+            buttonStop.Size = new Size(131, 28);
+            buttonStop.TabIndex = 2;
+            buttonStop.Text = "Stop Server";
+            buttonStop.UseVisualStyleBackColor = true;
+            buttonStop.Click += buttonStop_Click;
             // 
             // progressBar1
             // 
-            progressBar1.Location = new Point(45, 170);
+            progressBar1.Location = new Point(38, 200);
             progressBar1.Name = "progressBar1";
             progressBar1.Size = new Size(200, 25);
             progressBar1.TabIndex = 3;
@@ -63,35 +66,49 @@
             // lblSpeed
             // 
             lblSpeed.AutoSize = true;
-            lblSpeed.Location = new Point(45, 198);
+
+            lblSpeed.Location = new Point(38, 228);
             lblSpeed.Name = "lblSpeed";
-            lblSpeed.Size = new Size(84, 15);
+            lblSpeed.Size = new Size(77, 15);
             lblSpeed.TabIndex = 4;
-            lblSpeed.Text = "Vitesse : 0 kB/s";
+            lblSpeed.Text = "Speed: 0 kB/s";
             // 
-            // Form1
+            // label1
+            // 
+            label1.AutoSize = true;
+            label1.Font = new Font("Segoe UI", 24F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label1.Location = new Point(56, 27);
+            label1.Name = "label1";
+            label1.Size = new Size(165, 45);
+            label1.TabIndex = 5;
+            label1.Text = "UTransfer";
+            label1.Click += label1_Click;
+            // 
+            // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(280, 280);
+            Controls.Add(label1);
             Controls.Add(lblSpeed);
             Controls.Add(progressBar1);
-            Controls.Add(buttonArreter);
-            Controls.Add(buttonRecevoir);
-            Controls.Add(buttonEnvoyer);
+            Controls.Add(buttonStop);
+            Controls.Add(buttonReceive);
+            Controls.Add(buttonSend);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
-            Name = "Form1";
+            Name = "MainForm";
             Text = "UTransfer";
-            Load += Form1_Load;
+            Load += MainForm_Load;
             ResumeLayout(false);
             PerformLayout();
         }
 
-        private System.Windows.Forms.Button buttonEnvoyer;
-        private System.Windows.Forms.Button buttonRecevoir;
-        private System.Windows.Forms.Button buttonArreter;  // Bouton Arrêter
-        private System.Windows.Forms.ProgressBar progressBar1;  // Barre de progression
-        private System.Windows.Forms.Label lblSpeed;  // Label pour afficher la vitesse
+        private System.Windows.Forms.Button buttonSend;
+        private System.Windows.Forms.Button buttonReceive;
+        private System.Windows.Forms.Button buttonStop;  // Stop button
+        private System.Windows.Forms.ProgressBar progressBar1;  // Progress bar
+        private System.Windows.Forms.Label lblSpeed;  // Label to display speed
+        private Label label1;
     }
-}
+} //for commit
