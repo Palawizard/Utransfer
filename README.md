@@ -48,6 +48,7 @@ UTransfer is a fast file transfer application designed to send and receive large
 - Users are encouraged to report any bugs or issues to help us improve UTransfer.
 
 ## Upcoming Features
+- Going to add something to tell the user that **the server is up**
 - **Continuous support and maintenance** to ensure reliability.
 - **Exploration of new features** based on user feedback.
 
