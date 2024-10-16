@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
@@ -8,7 +9,7 @@ namespace UTransfer
     public partial class SendFileForm : Form
     {
         private bool isCancelled = false;
-        private Thread? sendFileThread;  // Declared as nullable
+        private List<Thread> sendFileThreads = new List<Thread>();
 
         public SendFileForm()
         {
@@ -23,41 +24,39 @@ namespace UTransfer
         private void btnSend_Click(object sender, EventArgs e)
         {
             string ipAddress = txtIpAddress.Text;  // Get the entered IP address
-            string filePath = SelectFile();  // Open a dialog to select a file
+            List<string> filePaths = SelectFiles();  // Open a dialog to select files
 
-            if (!string.IsNullOrEmpty(ipAddress) && !string.IsNullOrEmpty(filePath))
+            if (!string.IsNullOrEmpty(ipAddress) && filePaths.Count > 0)
             {
-                Debug.WriteLine($"Sending file {filePath} to {ipAddress}");
+                Debug.WriteLine($"Sending files to {ipAddress}");
 
                 // Reset the progress bar before sending
                 progressBar.Value = 0;
                 lblSpeed.Text = "Speed: 0 kB/s";
                 isCancelled = false;
 
-                // Create a separate thread for sending the file
-                sendFileThread = new Thread(() =>
-                {
-                    // Use the SendFile method (not SendFileAsync)
-                    NetworkHelper.SendFile(ipAddress, filePath, progressBar, lblSpeed, () => isCancelled);
-                });
-                sendFileThread.IsBackground = true;
-                sendFileThread.Start();
+                // Use the SendFiles method to send multiple files
+                NetworkHelper.SendFiles(ipAddress, filePaths, progressBar, lblSpeed, () => isCancelled);
             }
             else
             {
-                MessageBox.Show("Please enter a valid IP address and select a file.");
+                MessageBox.Show("Please enter a valid IP address and select at least one file.");
             }
         }
 
-        // Method to open a dialog to select a file
-        private string SelectFile()
+        // Method to open a dialog to select multiple files
+        private List<string> SelectFiles()
         {
-            OpenFileDialog openFileDialog = new OpenFileDialog();
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Multiselect = true  // Allow multiple file selection
+            };
+
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                return openFileDialog.FileName;  // Return the selected file's path
+                return new List<string>(openFileDialog.FileNames);  // Return the selected files' paths
             }
-            return string.Empty;
+            return new List<string>();
         }
 
         // Method to cancel the sending process
