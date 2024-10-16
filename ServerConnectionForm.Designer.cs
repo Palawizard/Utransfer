@@ -22,9 +22,9 @@
             // labelMessage
             // 
             labelMessage.AutoSize = true;
-            labelMessage.Location = new Point(49, 31);
+            labelMessage.Location = new Point(56, 30);
             labelMessage.Name = "labelMessage";
-            labelMessage.Size = new Size(200, 15);
+            labelMessage.Size = new Size(171, 15);
             labelMessage.TabIndex = 0;
             labelMessage.Text = "Server waiting for connection...";
             // 

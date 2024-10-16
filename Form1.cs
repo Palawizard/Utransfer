@@ -14,8 +14,9 @@ namespace UTransfer
         private void MainForm_Load(object sender, EventArgs e)
         {
             Debug.WriteLine("Main window loaded.");
-            progressBar1.Visible = false;  // Hide the progress bar initially
-            lblSpeed.Visible = false;  // Hide the speed label initially
+            // progressBar1 and lblSpeed will remain visible even when the server is not started
+            progressBar1.Value = 0;  // Reset the progress bar to 0 initially
+            lblSpeed.Text = "Speed: 0 kB/s";  // Set the initial speed label
         }
 
         private void buttonSend_Click(object sender, EventArgs e)
@@ -29,9 +30,7 @@ namespace UTransfer
         {
             Debug.WriteLine("Receive button clicked. Starting the receiving server.");
 
-            // Show the progress bar and speed label only when the server is started
-            progressBar1.Visible = true;
-            lblSpeed.Visible = true;
+            // Start the server without affecting the visibility of the progress bar or speed label
             NetworkHelper.RunServerInThread(progressBar1, lblSpeed);
         }
 
@@ -40,9 +39,14 @@ namespace UTransfer
             Debug.WriteLine("Stop button clicked. Stopping the server.");
             NetworkHelper.StopServer();  // Stop the server and show a confirmation message
 
-            // Hide the progress bar and speed label after stopping the server
-            progressBar1.Visible = false;
-            lblSpeed.Visible = false;
+            // Keep the progress bar and speed label visible even after stopping the server
+            progressBar1.Value = 0;  // Reset the progress bar after stopping the server
+            lblSpeed.Text = "Speed: 0 kB/s";  // Reset the speed label after stopping the server
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

@@ -14,9 +14,9 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
         private static TcpClient? currentClient; // Reference to the current client to force closure when stopping the server
-        private static byte[] buffer = new byte[524288]; // 512 KB for faster transfer
+        private static readonly byte[] buffer = new byte[1048576]; // Buffer of 1MB for fast transfers
 
-        // Method to send a file to a specified IP address
+        // Optimized method to send a file with a larger buffer size for faster transmission
         public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
         {
             try
@@ -31,13 +31,10 @@ namespace UTransfer
 
                 using (TcpClient client = new TcpClient())
                 {
-                    client.NoDelay = true;  // Disable Nagle's algorithm for better performance
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
-                    client.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.NoDelay, true);
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buffer.Length);
-                    client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buffer.Length);
-
-                    client.Connect(ipAddress, 5001);  // Connect to the server
+                    client.NoDelay = true;  // Disable Nagle's algorithm for faster small-packet transmission
+                    client.ReceiveBufferSize = buffer.Length;
+                    client.SendBufferSize = buffer.Length;
+                    client.Connect(ipAddress, 5001);
 
                     using (NetworkStream stream = client.GetStream())
                     {
@@ -46,7 +43,7 @@ namespace UTransfer
                         long fileSize = new FileInfo(filePath).Length;
                         byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
 
-                        // Send the file size and name
+                        // Send file size and name before the actual data
                         stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
                         stream.Write(fileNameBytes, 0, fileNameBytes.Length);
 
@@ -59,13 +56,18 @@ namespace UTransfer
 
                             progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
 
+                            // Use the larger buffer size for faster reading/writing
                             while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
                             {
                                 if (isCancelled())
                                 {
+                                    // Send cancellation notice and reset the connection
                                     byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");
                                     stream.Write(cancelMessage, 0, cancelMessage.Length);
+
                                     MessageBox.Show("Transfer canceled.");
+                                    stream.Close();
+                                    client.Close();
                                     ResetProgressBar(progressBar, lblSpeed);
                                     return;
                                 }
@@ -73,12 +75,12 @@ namespace UTransfer
                                 stream.Write(buffer, 0, bytesRead);
                                 totalBytesSent += bytesRead;
 
-                                // Update progress bar and speed
+                                // Update progress bar and speed dynamically
                                 progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
                                 double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                                 if (elapsedSeconds > 0)
                                 {
-                                    double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // MB/s
+                                    double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // Speed in MB/s
                                     lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
                                 }
                             }
@@ -97,16 +99,24 @@ namespace UTransfer
             catch (IOException ex)
             {
                 Debug.WriteLine($"I/O error: {ex.Message}");
-                MessageBox.Show("Error reading the file.");
+                if (!isCancelled())
+                {
+                    MessageBox.Show("Error reading the file.");
+                }
+                ResetProgressBar(progressBar, lblSpeed);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Unknown error: {ex.Message}");
-                MessageBox.Show("Error sending the file.");
+                if (!isCancelled())
+                {
+                    MessageBox.Show("Error sending the file.");
+                }
+                ResetProgressBar(progressBar, lblSpeed);
             }
         }
 
-        // Starts the receiving server
+        // Starts the receiving server with buffer management for speed
         public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed)
         {
             if (!isServerRunning)
@@ -114,13 +124,13 @@ namespace UTransfer
                 isServerRunning = true;
                 serverThread = new Thread(() => ReceiveFile(progressBar, lblSpeed));
                 serverThread.IsBackground = true;
-                serverThread.Priority = ThreadPriority.Highest; // Max priority to minimize interruptions
+                serverThread.Priority = ThreadPriority.Highest; // Maximize performance by setting thread priority
                 serverThread.Start();
                 MessageBox.Show("Receiving server started.");
             }
         }
 
-        // Stops the server
+        // Stops the server and ensures all connections are closed cleanly
         public static void StopServer()
         {
             if (listener != null && isServerRunning)
@@ -128,7 +138,7 @@ namespace UTransfer
                 isServerRunning = false;
                 listener.Stop();
 
-                // If a transfer is in progress, close the connection
+                // Close active connection if there is one
                 if (currentClient != null && currentClient.Connected)
                 {
                     currentClient.Close();
@@ -140,7 +150,7 @@ namespace UTransfer
             }
         }
 
-        // Method to receive a file
+        // Optimized file receiving with a larger buffer size and better connection handling
         public static void ReceiveFile(ProgressBar progressBar, Label lblSpeed)
         {
             try
@@ -155,7 +165,15 @@ namespace UTransfer
                     using (NetworkStream stream = client.GetStream())
                     {
                         byte[] fileSizeBytes = new byte[8];
-                        stream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
+
+                        // Wait for data from the client
+                        int bytesRead = stream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
+
+                        if (bytesRead == 0)
+                        {
+                            continue;
+                        }
+
                         long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
 
                         byte[] fileNameBytes = new byte[1024];
@@ -178,8 +196,14 @@ namespace UTransfer
 
                                 while (totalBytesReceived < fileSize)
                                 {
-                                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                                    if (System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead).Contains("CANCELLED") || !client.Connected)
+                                    bytesRead = stream.Read(buffer, 0, buffer.Length);
+                                    if (System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead).Contains("CANCELLED"))
+                                    {
+                                        MessageBox.Show("Transfer canceled by the sender. You may need to restart the server.");
+                                        ResetProgressBar(progressBar, lblSpeed);
+                                        return;
+                                    }
+                                    if (!client.Connected)
                                     {
                                         fs.Close();
                                         File.Delete(savePath);
@@ -206,18 +230,24 @@ namespace UTransfer
                         }
                     }
                     client.Close();
-                    currentClient = null;  // Reset the reference after the transfer
+                    currentClient = null;
                 }
             }
             catch (SocketException ex)
             {
                 Debug.WriteLine($"Socket error: {ex.Message}");
-                MessageBox.Show("Error receiving the file.");
+                if (isServerRunning)
+                {
+                    MessageBox.Show("Transfer canceled.");
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Receiving error: {ex.Message}");
-                MessageBox.Show("Error receiving the file.");
+                if (isServerRunning)
+                {
+                    MessageBox.Show("Transfer canceled.");
+                }
             }
         }
 

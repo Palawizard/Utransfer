@@ -53,15 +53,16 @@
             // labelIp
             // 
             labelIp.AutoSize = true;
+            labelIp.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             labelIp.Location = new Point(34, 29);
             labelIp.Name = "labelIp";
-            labelIp.Size = new Size(94, 15);
+            labelIp.Size = new Size(114, 15);
             labelIp.TabIndex = 2;
             labelIp.Text = "Friend's IP Address:";
             // 
             // progressBar
             // 
-            progressBar.Location = new Point(34, 85);
+            progressBar.Location = new Point(34, 76);
             progressBar.Name = "progressBar";
             progressBar.Size = new Size(175, 23);
             progressBar.TabIndex = 3;
@@ -69,9 +70,9 @@
             // lblSpeed
             // 
             lblSpeed.AutoSize = true;
-            lblSpeed.Location = new Point(34, 111);
+            lblSpeed.Location = new Point(34, 102);
             lblSpeed.Name = "lblSpeed";
-            lblSpeed.Size = new Size(84, 15);
+            lblSpeed.Size = new Size(77, 15);
             lblSpeed.TabIndex = 4;
             lblSpeed.Text = "Speed: 0 kB/s";
             // 
