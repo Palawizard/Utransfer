@@ -172,7 +172,9 @@ namespace UTransfer
 
                             string fileName = fileNames[i];
                             long fileSize = fileSizes[i];
-                            string savePath = Path.Combine(saveFolderPath, fileName);
+
+                            // Get a unique file path to prevent overwriting existing files
+                            string savePath = GetUniqueFilePath(saveFolderPath, fileName);
 
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
@@ -465,6 +467,24 @@ namespace UTransfer
                 progressBar.Maximum = 100; // Default value to avoid issues
                 lblSpeed.Text = "Speed: 0 MB/s";
             }));
+        }
+
+        // Generates a unique file path if the file already exists
+        private static string GetUniqueFilePath(string directory, string fileName)
+        {
+            string filePath = Path.Combine(directory, fileName);
+            string fileNameOnly = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            int count = 1;
+
+            while (File.Exists(filePath))
+            {
+                string tempFileName = $"{fileNameOnly}({count}){extension}";
+                filePath = Path.Combine(directory, tempFileName);
+                count++;
+            }
+
+            return filePath;
         }
     }
 }
