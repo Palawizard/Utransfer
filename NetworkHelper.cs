@@ -70,7 +70,26 @@ namespace UTransfer
                                     return;
                                 }
 
-                                stream.Write(buffer, 0, bytesRead);
+                                try
+                                {
+                                    stream.Write(buffer, 0, bytesRead);
+                                }
+                                catch (IOException ex)
+                                {
+                                    // Vérifie si l'exception est due à une fermeture de connexion par le receveur
+                                    if (ex.InnerException is SocketException socketEx &&
+                                        (socketEx.SocketErrorCode == SocketError.ConnectionReset || socketEx.SocketErrorCode == SocketError.Shutdown))
+                                    {
+                                        MessageBox.Show("Le transfert a été annulé par le receveur.");
+                                    }
+                                    else
+                                    {
+                                        MessageBox.Show("Transfert annulé.");
+                                    }
+                                    ResetProgressBar(progressBar, lblSpeed);
+                                    return;
+                                }
+
                                 totalBytesSent += bytesRead;
 
                                 // Mise à jour de la barre de progression et de la vitesse
@@ -99,8 +118,18 @@ namespace UTransfer
                 Debug.WriteLine($"Erreur d'E/S : {ex.Message}");
                 if (!isCancelled())
                 {
-                    MessageBox.Show("Erreur lors de la lecture du fichier.");
+                    // Vérifie si l'exception est due à une fermeture de connexion par le receveur
+                    if (ex.InnerException is SocketException socketEx &&
+                        (socketEx.SocketErrorCode == SocketError.ConnectionReset || socketEx.SocketErrorCode == SocketError.Shutdown))
+                    {
+                        MessageBox.Show("Le transfert a été annulé par le receveur.");
+                    }
+                    else
+                    {
+                        MessageBox.Show("Erreur lors de l'envoi du fichier.");
+                    }
                 }
+                ResetProgressBar(progressBar, lblSpeed);
             }
             catch (Exception ex)
             {
@@ -109,6 +138,7 @@ namespace UTransfer
                 {
                     MessageBox.Show("Erreur lors de l'envoi du fichier.");
                 }
+                ResetProgressBar(progressBar, lblSpeed);
             }
         }
 
