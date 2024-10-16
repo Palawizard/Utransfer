@@ -16,6 +16,7 @@ namespace UTransfer
         private static bool isServerRunning = false;
         private static Thread? serverThread;
         private static readonly byte[] buffer = new byte[1048576]; // Optimized 1 MB buffer
+        private static List<TcpClient> connectedClients = new List<TcpClient>(); // Track connected clients
 
         // Starts the receiving server with an optimized buffer
         public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed)
@@ -29,10 +30,6 @@ namespace UTransfer
                 serverThread.Start();
                 MessageBox.Show("Receiving server started.");
             }
-            else
-            {
-                MessageBox.Show("Server is already running.");
-            }
         }
 
         // Stops the server and closes all connections properly
@@ -41,13 +38,22 @@ namespace UTransfer
             if (listener != null && isServerRunning)
             {
                 isServerRunning = false;
+
+                // Close the listener to unblock AcceptTcpClient
                 listener.Stop();
+
+                // Close all connected clients
+                lock (connectedClients)
+                {
+                    foreach (var client in connectedClients)
+                    {
+                        client.Close();
+                    }
+                    connectedClients.Clear();
+                }
+
                 listener = null;
                 MessageBox.Show("The server has been stopped.");
-            }
-            else
-            {
-                MessageBox.Show("Server is not running.");
             }
         }
 
@@ -61,48 +67,42 @@ namespace UTransfer
 
                 while (isServerRunning)
                 {
+                    TcpClient client;
                     try
                     {
-                        TcpClient client = listener.AcceptTcpClient();
-                        Thread clientThread = new Thread(() => ReceiveFiles(client, progressBar, lblSpeed));
-                        clientThread.IsBackground = true;
-                        clientThread.Start();
+                        client = listener.AcceptTcpClient();
                     }
                     catch (SocketException ex)
                     {
-                        if (isServerRunning)
+                        // If the listener is stopped, AcceptTcpClient will throw an exception
+                        if (!isServerRunning)
                         {
-                            Debug.WriteLine($"Socket error: {ex.Message}");
-                            MessageBox.Show($"Socket error: {ex.Message}");
+                            break; // Exit the loop if the server is stopped
                         }
                         else
                         {
-                            // Listener was stopped, exit the loop
-                            break;
+                            Debug.WriteLine($"Socket error: {ex.Message}");
+                            continue;
                         }
                     }
-                }
-            }
-            catch (SocketException ex)
-            {
-                Debug.WriteLine($"Socket error: {ex.Message}");
-                if (isServerRunning)
-                {
-                    MessageBox.Show($"Socket error: {ex.Message}");
+
+                    lock (connectedClients)
+                    {
+                        connectedClients.Add(client);
+                    }
+
+                    Thread clientThread = new Thread(() => ReceiveFiles(client, progressBar, lblSpeed));
+                    clientThread.IsBackground = true;
+                    clientThread.Start();
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error starting server: {ex.Message}");
             }
-            finally
-            {
-                isServerRunning = false;
-                listener = null;
-            }
         }
 
-        // Method to read exactly 'size' bytes from the stream
+        // Helper method to read exactly 'size' bytes from the stream
         private static void ReadExact(NetworkStream stream, byte[] buffer, int offset, int size)
         {
             int totalBytesRead = 0;
@@ -164,6 +164,12 @@ namespace UTransfer
 
                         for (int i = 0; i < fileCount; i++)
                         {
+                            if (!isServerRunning)
+                            {
+                                // Server stopped, cancel the transfer
+                                break;
+                            }
+
                             string fileName = fileNames[i];
                             long fileSize = fileSizes[i];
                             string savePath = Path.Combine(saveFolderPath, fileName);
@@ -182,23 +188,33 @@ namespace UTransfer
 
                                 while (totalBytesReceived < fileSize)
                                 {
+                                    if (!isServerRunning)
+                                    {
+                                        // Server stopped, cancel the transfer
+                                        fs.Close();
+                                        File.Delete(savePath);
+                                        MessageBox.Show($"Transfer of file '{fileName}' was canceled by the receiver.");
+                                        ResetProgressBar(progressBar, lblSpeed);
+                                        break;
+                                    }
+
                                     int bytesToRead = (int)Math.Min(buffer.Length, fileSize - totalBytesReceived);
                                     int bytesRead = stream.Read(buffer, 0, bytesToRead);
 
                                     if (bytesRead == 0)
                                     {
-                                        // If no bytes are read before the expected file size is reached, it's a cancellation
+                                        // If no bytes are read before receiving the expected file size, it's a cancellation
                                         if (totalBytesReceived < fileSize)
                                         {
                                             fs.Close();
                                             File.Delete(savePath);
-                                            MessageBox.Show($"The transfer of file '{fileName}' was canceled by the sender.");
+                                            MessageBox.Show($"Transfer of file '{fileName}' was canceled by the sender.");
                                             ResetProgressBar(progressBar, lblSpeed);
                                             break;
                                         }
                                         else
                                         {
-                                            // We have finished reading the file
+                                            // Finished reading the file
                                             break;
                                         }
                                     }
@@ -230,7 +246,7 @@ namespace UTransfer
                                     // If the file was not fully received, it was canceled
                                     fs.Close();
                                     File.Delete(savePath);
-                                    // The cancellation message has already been displayed in the loop
+                                    // Cancellation message has already been displayed
                                     break; // Exit the loop if a transfer was canceled
                                 }
 
@@ -250,17 +266,22 @@ namespace UTransfer
                         }
                     }
                 }
-                client.Close();
-            }
-            catch (IOException ex)
-            {
-                Debug.WriteLine($"IO Error receiving files: {ex.Message}");
-                MessageBox.Show($"IO Error receiving files: {ex.Message}");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error receiving files: {ex.Message}");
-                MessageBox.Show($"Error receiving files: {ex.Message}");
+                if (isServerRunning)
+                {
+                    MessageBox.Show($"Error receiving files: {ex.Message}");
+                }
+            }
+            finally
+            {
+                lock (connectedClients)
+                {
+                    connectedClients.Remove(client);
+                }
+                client.Close();
             }
         }
 
