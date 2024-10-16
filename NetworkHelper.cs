@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
 
@@ -12,12 +13,12 @@ namespace UTransfer
     {
         private static TcpListener? listener;
         private static bool isServerRunning = false;
-        private static Thread? serverThread;
+        private static CancellationTokenSource? cancellationTokenSource;
         private static TcpClient? currentClient; // Référence au client actuel pour forcer la fermeture lors de l'arrêt du serveur
         private static readonly byte[] buffer = new byte[1048576]; // Buffer de 1 Mo
 
-        // Méthode optimisée pour envoyer un fichier avec des tailles de buffer plus grandes et une surcharge réduite
-        public static void SendFile(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
+        // Méthode optimisée pour envoyer un fichier avec des opérations asynchrones
+        public static async Task SendFileAsync(string ipAddress, string filePath, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
         {
             try
             {
@@ -34,7 +35,7 @@ namespace UTransfer
                     client.NoDelay = true;  // Désactive l'algorithme de Nagle pour une transmission plus rapide des petits paquets
                     client.ReceiveBufferSize = buffer.Length; // Optimise la taille du buffer pour le socket
                     client.SendBufferSize = buffer.Length;
-                    client.Connect(ipAddress, 5001);
+                    await client.ConnectAsync(ipAddress, 5001);
 
                     using (NetworkStream stream = client.GetStream())
                     {
@@ -44,8 +45,8 @@ namespace UTransfer
                         byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
 
                         // Envoie la taille et le nom du fichier avant les données réelles
-                        stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
-                        stream.Write(fileNameBytes, 0, fileNameBytes.Length);
+                        await stream.WriteAsync(fileSizeBytes, 0, fileSizeBytes.Length);
+                        await stream.WriteAsync(fileNameBytes, 0, fileNameBytes.Length);
 
                         using (FileStream fs = File.OpenRead(filePath))
                         {
@@ -54,32 +55,34 @@ namespace UTransfer
                             Stopwatch stopwatch = new Stopwatch();
                             stopwatch.Start();
 
-                            progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
+                            progressBar.Invoke((MethodInvoker)(() =>
+                            {
+                                progressBar.Maximum = (int)(fileSize / 1024);
+                                progressBar.Value = 0;
+                            }));
 
                             long lastUpdate = 0;
 
-                            // Optimise la lecture du fichier et l'écriture réseau en utilisant un buffer plus grand
-                            while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
+                            // Optimise la lecture du fichier et l'écriture réseau en utilisant des opérations asynchrones
+                            while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
                             {
                                 if (isCancelled())
                                 {
                                     // Envoie une notification d'annulation au récepteur
                                     byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");
-                                    stream.Write(cancelMessage, 0, cancelMessage.Length);
+                                    await stream.WriteAsync(cancelMessage, 0, cancelMessage.Length);
 
                                     // Affiche le message d'annulation et nettoie
                                     MessageBox.Show("Transfer canceled.");
-                                    stream.Close();  // Ferme le flux
-                                    client.Close();  // Ferme la connexion client
                                     ResetProgressBar(progressBar, lblSpeed);  // Réinitialise la barre de progression
                                     return;
                                 }
 
-                                stream.Write(buffer, 0, bytesRead);
+                                await stream.WriteAsync(buffer, 0, bytesRead);
                                 totalBytesSent += bytesRead;
 
-                                // Met à jour la barre de progression et la vitesse à intervalles réguliers
-                                if (stopwatch.ElapsedMilliseconds - lastUpdate >= 100)
+                                // Met à jour la barre de progression et la vitesse à intervalles plus longs (toutes les 500 ms)
+                                if (stopwatch.ElapsedMilliseconds - lastUpdate >= 500)
                                 {
                                     lastUpdate = stopwatch.ElapsedMilliseconds;
 
@@ -136,10 +139,8 @@ namespace UTransfer
             if (!isServerRunning)
             {
                 isServerRunning = true;
-                serverThread = new Thread(() => ReceiveFile(progressBar, lblSpeed));
-                serverThread.IsBackground = true;
-                serverThread.Priority = ThreadPriority.Highest; // Maximiser la performance en définissant la priorité du thread
-                serverThread.Start();
+                cancellationTokenSource = new CancellationTokenSource();
+                Task.Run(() => ReceiveFileAsync(progressBar, lblSpeed, cancellationTokenSource.Token), cancellationTokenSource.Token);
                 MessageBox.Show("Receiving server started.");
             }
         }
@@ -147,10 +148,10 @@ namespace UTransfer
         // Arrête le serveur et s'assure que toutes les connexions sont fermées proprement
         public static void StopServer()
         {
-            if (listener != null && isServerRunning)
+            if (isServerRunning && cancellationTokenSource != null)
             {
                 isServerRunning = false;
-                listener.Stop();
+                cancellationTokenSource.Cancel();
 
                 // Ferme la connexion active s'il y en a une
                 if (currentClient != null && currentClient.Connected)
@@ -159,13 +160,14 @@ namespace UTransfer
                     currentClient = null;  // Réinitialise la référence du client
                 }
 
+                listener?.Stop();
                 listener = null;
                 MessageBox.Show("The server has been stopped.");
             }
         }
 
         // Réception de fichier optimisée avec des tailles de buffer plus grandes et une meilleure gestion des connexions
-        public static void ReceiveFile(ProgressBar progressBar, Label lblSpeed)
+        public static async Task ReceiveFileAsync(ProgressBar progressBar, Label lblSpeed, CancellationToken cancellationToken)
         {
             try
             {
@@ -174,14 +176,15 @@ namespace UTransfer
 
                 while (isServerRunning)
                 {
-                    TcpClient client = listener.AcceptTcpClient();
+                    TcpClient client = await listener.AcceptTcpClientAsync();
                     currentClient = client; // Stocke la connexion active
+
                     using (NetworkStream stream = client.GetStream())
                     {
                         byte[] fileSizeBytes = new byte[8];
 
                         // Attend les données du client
-                        int bytesRead = stream.Read(fileSizeBytes, 0, fileSizeBytes.Length);
+                        int bytesRead = await stream.ReadAsync(fileSizeBytes, 0, fileSizeBytes.Length);
 
                         // Passe à l'itération suivante si aucune donnée n'est reçue
                         if (bytesRead == 0)
@@ -192,7 +195,7 @@ namespace UTransfer
                         long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
 
                         byte[] fileNameBytes = new byte[1024];
-                        stream.Read(fileNameBytes, 0, fileNameBytes.Length);
+                        await stream.ReadAsync(fileNameBytes, 0, fileNameBytes.Length);
                         string fileName = System.Text.Encoding.UTF8.GetString(fileNameBytes).TrimEnd('\0').Replace("\0", ""); // Supprime les caractères nuls
 
                         if (MessageBox.Show($"Receive the file {fileName}?", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
@@ -207,13 +210,17 @@ namespace UTransfer
                                 Stopwatch stopwatch = new Stopwatch();
                                 stopwatch.Start();
 
-                                progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
+                                progressBar.Invoke((MethodInvoker)(() =>
+                                {
+                                    progressBar.Maximum = (int)(fileSize / 1024);
+                                    progressBar.Value = 0;
+                                }));
 
                                 long lastUpdate = 0;
 
                                 while (totalBytesReceived < fileSize)
                                 {
-                                    bytesRead = stream.Read(buffer, 0, buffer.Length);
+                                    bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
                                     if (bytesRead == 0)
                                     {
                                         // Si le flux est fermé, le transfert est annulé
@@ -233,11 +240,11 @@ namespace UTransfer
                                         return;
                                     }
 
-                                    fs.Write(buffer, 0, bytesRead);
+                                    await fs.WriteAsync(buffer, 0, bytesRead);
                                     totalBytesReceived += bytesRead;
 
-                                    // Met à jour la barre de progression et la vitesse à intervalles réguliers
-                                    if (stopwatch.ElapsedMilliseconds - lastUpdate >= 100)
+                                    // Met à jour la barre de progression et la vitesse à intervalles plus longs (toutes les 500 ms)
+                                    if (stopwatch.ElapsedMilliseconds - lastUpdate >= 500)
                                     {
                                         lastUpdate = stopwatch.ElapsedMilliseconds;
 
@@ -272,6 +279,10 @@ namespace UTransfer
                 {
                     MessageBox.Show("Transfer canceled.");
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // Arrêt normal du serveur
             }
             catch (Exception ex)
             {
