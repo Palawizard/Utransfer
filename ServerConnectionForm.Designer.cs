@@ -22,7 +22,7 @@
             // labelMessage
             // 
             labelMessage.AutoSize = true;
-            labelMessage.Location = new Point(40, 30);
+            labelMessage.Location = new Point(49, 31);
             labelMessage.Name = "labelMessage";
             labelMessage.Size = new Size(200, 15);
             labelMessage.TabIndex = 0;

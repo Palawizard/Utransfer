@@ -55,7 +55,7 @@
             // 
             // progressBar1
             // 
-            progressBar1.Location = new Point(20, 180);
+            progressBar1.Location = new Point(45, 170);
             progressBar1.Name = "progressBar1";
             progressBar1.Size = new Size(200, 25);
             progressBar1.TabIndex = 3;
@@ -63,7 +63,7 @@
             // lblSpeed
             // 
             lblSpeed.AutoSize = true;
-            lblSpeed.Location = new Point(20, 220);
+            lblSpeed.Location = new Point(45, 198);
             lblSpeed.Name = "lblSpeed";
             lblSpeed.Size = new Size(77, 15);
             lblSpeed.TabIndex = 4;

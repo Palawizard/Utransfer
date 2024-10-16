@@ -25,10 +25,10 @@
             // 
             // txtIpAddress
             // 
-            this.txtIpAddress.Location = new System.Drawing.Point(20, 50);
-            this.txtIpAddress.Name = "txtIpAddress";
-            this.txtIpAddress.Size = new System.Drawing.Size(200, 22);
-            this.txtIpAddress.TabIndex = 0;
+            txtIpAddress.Location = new Point(34, 47);
+            txtIpAddress.Name = "txtIpAddress";
+            txtIpAddress.Size = new Size(176, 23);
+            txtIpAddress.TabIndex = 0;
             // 
             // btnSend
             // 
@@ -61,10 +61,10 @@
             // 
             // progressBar
             // 
-            this.progressBar.Location = new System.Drawing.Point(20, 90);
-            this.progressBar.Name = "progressBar";
-            this.progressBar.Size = new System.Drawing.Size(200, 25);
-            this.progressBar.TabIndex = 3;
+            progressBar.Location = new Point(34, 85);
+            progressBar.Name = "progressBar";
+            progressBar.Size = new Size(175, 23);
+            progressBar.TabIndex = 3;
             // 
             // lblSpeed
             // 

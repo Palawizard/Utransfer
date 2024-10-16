@@ -50,7 +50,6 @@ namespace UTransfer
                         stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
                         stream.Write(fileNameBytes, 0, fileNameBytes.Length);
 
-                        byte[] buffer = new byte[1024];
                         using (FileStream fs = File.OpenRead(filePath))
                         {
                             int bytesRead;
@@ -64,8 +63,7 @@ namespace UTransfer
                             {
                                 if (isCancelled())
                                 {
-                                    Debug.WriteLine("Transfert annulé.");
-                                    byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");  // Message spécial d'annulation
+                                    byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");
                                     stream.Write(cancelMessage, 0, cancelMessage.Length);
                                     MessageBox.Show("Transfer canceled.");
                                     ResetProgressBar(progressBar, lblSpeed);
@@ -77,7 +75,6 @@ namespace UTransfer
 
                                 // Update progress bar and speed
                                 progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
-
                                 double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                                 if (elapsedSeconds > 0)
                                 {
@@ -114,7 +111,6 @@ namespace UTransfer
         {
             if (!isServerRunning)
             {
-                isTransferCancelled = false;
                 isServerRunning = true;
                 serverThread = new Thread(() => ReceiveFile(progressBar, lblSpeed));
                 serverThread.IsBackground = true;
@@ -130,7 +126,6 @@ namespace UTransfer
             if (listener != null && isServerRunning)
             {
                 isServerRunning = false;
-                isTransferCancelled = true; // Arrête les transferts en cours
                 listener.Stop();
 
                 // If a transfer is in progress, close the connection
@@ -152,7 +147,6 @@ namespace UTransfer
             {
                 listener = new TcpListener(IPAddress.Any, 5001);
                 listener.Start();
-                Debug.WriteLine("Serveur en attente de connexion...");
 
                 while (isServerRunning)
                 {
@@ -173,11 +167,10 @@ namespace UTransfer
                             string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "received_files");
                             Directory.CreateDirectory(saveFolderPath);
                             string savePath = Path.Combine(saveFolderPath, fileName);
+
                             using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
                             {
-                                byte[] buffer = new byte[1024];
                                 long totalBytesReceived = 0;
-
                                 Stopwatch stopwatch = new Stopwatch();
                                 stopwatch.Start();
 
@@ -186,10 +179,7 @@ namespace UTransfer
                                 while (totalBytesReceived < fileSize)
                                 {
                                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                                    string message = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                                    // Si un message d'annulation est reçu, supprimer le fichier
-                                    if (message.Contains("CANCELLED"))
+                                    if (System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead).Contains("CANCELLED") || !client.Connected)
                                     {
                                         fs.Close();
                                         File.Delete(savePath);
@@ -198,16 +188,10 @@ namespace UTransfer
                                         return;
                                     }
 
-                                    if (bytesRead == 0 || isTransferCancelled)
-                                    {
-                                        if (isTransferCancelled) MessageBox.Show("Transfert annulé.");
-                                        break;
-                                    }
                                     fs.Write(buffer, 0, bytesRead);
                                     totalBytesReceived += bytesRead;
 
                                     progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesReceived / 1024)));
-
                                     double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
                                     if (elapsedSeconds > 0)
                                     {
