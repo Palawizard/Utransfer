@@ -36,6 +36,7 @@
             // 
             // buttonReceive
             // 
+
             buttonReceive.Location = new Point(72, 116);
             buttonReceive.Name = "buttonReceive";
             buttonReceive.Size = new Size(131, 28);
@@ -46,6 +47,7 @@
             // 
             // buttonStop
             // 
+
             buttonStop.Location = new Point(72, 150);
             buttonStop.Name = "buttonStop";
             buttonStop.Size = new Size(131, 28);
@@ -64,6 +66,7 @@
             // lblSpeed
             // 
             lblSpeed.AutoSize = true;
+
             lblSpeed.Location = new Point(38, 228);
             lblSpeed.Name = "lblSpeed";
             lblSpeed.Size = new Size(77, 15);

@@ -56,7 +56,6 @@ namespace UTransfer
                 MessageBox.Show("The server has been stopped.");
             }
         }
-
         // Starts the server and handles incoming connections
         private static void StartServer(ProgressBar progressBar, Label lblSpeed)
         {
@@ -190,6 +189,7 @@ namespace UTransfer
 
                                 while (totalBytesReceived < fileSize)
                                 {
+
                                     if (!isServerRunning)
                                     {
                                         // Server stopped, cancel the transfer
@@ -255,7 +255,6 @@ namespace UTransfer
                                 ResetProgressBar(progressBar, lblSpeed);
                             }
                         }
-
                         // Display a summary message of the received files
                         if (receivedFiles.Count > 0)
                         {
@@ -485,6 +484,15 @@ namespace UTransfer
             }
 
             return filePath;
+        }
+
+        private static void ResetProgressBar(ProgressBar progressBar, Label lblSpeed)
+        {
+            progressBar.Invoke((MethodInvoker)(() =>
+            {
+                progressBar.Value = 0;
+                lblSpeed.Text = "Vitesse : 0 MB/s";
+            }));
         }
     }
 } //for commit

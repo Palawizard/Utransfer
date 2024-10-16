@@ -32,7 +32,6 @@ namespace UTransfer
                 progressBar.Value = 0;
                 lblSpeed.Text = "Speed: 0 kB/s";
                 isCancelled = false;
-
                 // Use the SendFiles method to send multiple files sequentially
                 NetworkHelper.SendFiles(ipAddress, filePaths, progressBar, lblSpeed, () => isCancelled);
             }
