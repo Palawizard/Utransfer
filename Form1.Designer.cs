@@ -36,7 +36,6 @@
             // 
             // buttonReceive
             // 
-
             buttonReceive.Location = new Point(72, 116);
             buttonReceive.Name = "buttonReceive";
             buttonReceive.Size = new Size(131, 28);
@@ -47,7 +46,6 @@
             // 
             // buttonStop
             // 
-
             buttonStop.Location = new Point(72, 150);
             buttonStop.Name = "buttonStop";
             buttonStop.Size = new Size(131, 28);
@@ -66,7 +64,6 @@
             // lblSpeed
             // 
             lblSpeed.AutoSize = true;
-
             lblSpeed.Location = new Point(38, 228);
             lblSpeed.Name = "lblSpeed";
             lblSpeed.Size = new Size(77, 15);
@@ -77,7 +74,7 @@
             // 
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 24F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label1.Location = new Point(56, 27);
+            label1.Location = new Point(58, 27);
             label1.Name = "label1";
             label1.Size = new Size(165, 45);
             label1.TabIndex = 5;
