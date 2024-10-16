@@ -193,19 +193,23 @@ namespace UTransfer
                                 while (totalBytesReceived < fileSize)
                                 {
                                     bytesRead = stream.Read(buffer, 0, buffer.Length);
-                                    if (bytesRead == 0)
-                                    {
-                                        // Connexion fermée ou transfert terminé
-                                        break;
-                                    }
 
-                                    // Vérifie si le message d'annulation est reçu
+                                    // Vérifie si l'envoyeur a annulé le transfert
                                     string receivedData = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
                                     if (receivedData.Contains("CANCELLED"))
                                     {
                                         fs.Close();
                                         File.Delete(savePath);
-                                        MessageBox.Show("Transfert annulé par l'envoyeur.");
+                                        MessageBox.Show("Le transfert a été annulé par l'envoyeur.");
+                                        ResetProgressBar(progressBar, lblSpeed);
+                                        return;
+                                    }
+
+                                    if (!client.Connected || bytesRead == 0)
+                                    {
+                                        fs.Close();
+                                        File.Delete(savePath);
+                                        MessageBox.Show("Transfert annulé.");
                                         ResetProgressBar(progressBar, lblSpeed);
                                         return;
                                     }
@@ -220,16 +224,6 @@ namespace UTransfer
                                         double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
                                         lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
                                     }
-                                }
-
-                                // Vérifie si le transfert a été interrompu avant la fin
-                                if (totalBytesReceived < fileSize)
-                                {
-                                    fs.Close();
-                                    File.Delete(savePath);
-                                    MessageBox.Show("Transfert interrompu.");
-                                    ResetProgressBar(progressBar, lblSpeed);
-                                    return;
                                 }
                             }
 
