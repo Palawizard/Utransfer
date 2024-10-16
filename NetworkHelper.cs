@@ -54,8 +54,9 @@ namespace UTransfer
                             Stopwatch stopwatch = new Stopwatch();
                             stopwatch.Start();
 
-                            // Définit le maximum de la barre de progression sur le thread UI
                             progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
+
+                            long lastUpdate = 0;
 
                             // Optimise la lecture du fichier et l'écriture réseau en utilisant un buffer plus grand
                             while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
@@ -77,15 +78,25 @@ namespace UTransfer
                                 stream.Write(buffer, 0, bytesRead);
                                 totalBytesSent += bytesRead;
 
-                                // Met à jour la barre de progression et la vitesse dynamiquement
-                                progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
-                                double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                                if (elapsedSeconds > 0)
+                                // Met à jour la barre de progression et la vitesse à intervalles réguliers
+                                if (stopwatch.ElapsedMilliseconds - lastUpdate >= 100)
                                 {
-                                    double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // Vitesse en Mo/s
-                                    lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                    lastUpdate = stopwatch.ElapsedMilliseconds;
+
+                                    progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesSent / 1024)));
+                                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                                    if (elapsedSeconds > 0)
+                                    {
+                                        double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // Vitesse en Mo/s
+                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                    }
                                 }
                             }
+
+                            // Mise à jour finale de la barre de progression et de la vitesse
+                            progressBar.Invoke((MethodInvoker)(() => progressBar.Value = progressBar.Maximum));
+                            double finalSpeed = (totalBytesSent / 1024.0 / 1024.0) / stopwatch.Elapsed.TotalSeconds;
+                            lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {finalSpeed:F2} MB/s"));
                         }
 
                         MessageBox.Show("File sent successfully.");
@@ -198,6 +209,8 @@ namespace UTransfer
 
                                 progressBar.Invoke((MethodInvoker)(() => progressBar.Maximum = (int)(fileSize / 1024)));
 
+                                long lastUpdate = 0;
+
                                 while (totalBytesReceived < fileSize)
                                 {
                                     bytesRead = stream.Read(buffer, 0, buffer.Length);
@@ -223,14 +236,25 @@ namespace UTransfer
                                     fs.Write(buffer, 0, bytesRead);
                                     totalBytesReceived += bytesRead;
 
-                                    progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesReceived / 1024)));
-                                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                                    if (elapsedSeconds > 0)
+                                    // Met à jour la barre de progression et la vitesse à intervalles réguliers
+                                    if (stopwatch.ElapsedMilliseconds - lastUpdate >= 100)
                                     {
-                                        double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
-                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                        lastUpdate = stopwatch.ElapsedMilliseconds;
+
+                                        progressBar.Invoke((MethodInvoker)(() => progressBar.Value = (int)(totalBytesReceived / 1024)));
+                                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                                        if (elapsedSeconds > 0)
+                                        {
+                                            double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
+                                            lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                        }
                                     }
                                 }
+
+                                // Mise à jour finale de la barre de progression et de la vitesse
+                                progressBar.Invoke((MethodInvoker)(() => progressBar.Value = progressBar.Maximum));
+                                double finalSpeed = (totalBytesReceived / 1024.0 / 1024.0) / stopwatch.Elapsed.TotalSeconds;
+                                lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {finalSpeed:F2} MB/s"));
                             }
 
                             MessageBox.Show($"File received: {savePath}");
