@@ -62,11 +62,7 @@ namespace UTransfer
                             {
                                 if (isCancelled())
                                 {
-                                    // Envoie un message d'annulation au receveur
-                                    byte[] cancelMessage = System.Text.Encoding.UTF8.GetBytes("CANCELLED");
-                                    stream.Write(cancelMessage, 0, cancelMessage.Length);
-
-                                    // Notifie l'annulation
+                                    // Notifie l'annulation et ferme la connexion
                                     MessageBox.Show("Transfert annulé.");
                                     stream.Close();  // Ferme la connexion proprement
                                     client.Close();  // Ferme la connexion client
@@ -194,24 +190,14 @@ namespace UTransfer
                                 {
                                     bytesRead = stream.Read(buffer, 0, buffer.Length);
 
-                                    // Vérifie si l'envoyeur a annulé le transfert
-                                    string receivedData = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                                    if (receivedData.Contains("CANCELLED"))
+                                    if (bytesRead == 0)
                                     {
+                                        // Si aucun octet n'est lu, la connexion a été fermée (transfert annulé)
                                         fs.Close();
                                         File.Delete(savePath);
                                         MessageBox.Show("Le transfert a été annulé par l'envoyeur.");
                                         ResetProgressBar(progressBar, lblSpeed);
-                                        return;
-                                    }
-
-                                    if (!client.Connected || bytesRead == 0)
-                                    {
-                                        fs.Close();
-                                        File.Delete(savePath);
-                                        MessageBox.Show("Transfert annulé.");
-                                        ResetProgressBar(progressBar, lblSpeed);
-                                        return;
+                                        break;
                                     }
 
                                     fs.Write(buffer, 0, bytesRead);
@@ -225,10 +211,14 @@ namespace UTransfer
                                         lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Vitesse : {speed:F2} MB/s"));
                                     }
                                 }
-                            }
 
-                            MessageBox.Show($"Fichier reçu : {savePath}");
-                            ResetProgressBar(progressBar, lblSpeed);
+                                // Vérifie si le transfert s'est terminé normalement
+                                if (totalBytesReceived == fileSize)
+                                {
+                                    MessageBox.Show($"Fichier reçu : {savePath}");
+                                }
+                                ResetProgressBar(progressBar, lblSpeed);
+                            }
                         }
                     }
                     client.Close();
