@@ -108,4 +108,4 @@
         private System.Windows.Forms.Label lblSpeed;  // Label to display speed
         private Label label1;
     }
-}
+} //for commit
