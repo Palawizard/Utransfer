@@ -258,6 +258,6 @@ namespace UTransfer
                 progressBar.Value = 0;
                 lblSpeed.Text = "Speed: 0 MB/s";
             }));
-        } // test
+        }
     }
 }
