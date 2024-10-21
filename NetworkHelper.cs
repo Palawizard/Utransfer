@@ -198,84 +198,88 @@ namespace UTransfer
                                                     progressBar.Maximum = 1000000; // Fixed maximum for scaling
                                                 }));
 
-                                                while (totalBytesReceived < fileSize)
+                                                try
                                                 {
-                                                    if (!isServerRunning)
+                                                    while (totalBytesReceived < fileSize)
                                                     {
-                                                        // Server stopped, cancel the transfer
-                                                        fs.Close();
-                                                        File.Delete(savePath);
-                                                        // Notify sender that transfer was canceled
-                                                        break;
-                                                    }
-
-                                                    int bytesToRead = (int)Math.Min(buffer.Length, fileSize - totalBytesReceived);
-                                                    int bytesRead = cryptoStream.Read(buffer, 0, bytesToRead);
-
-                                                    if (bytesRead == 0)
-                                                    {
-                                                        // If no bytes are read before receiving the expected file size, it's a cancellation
-                                                        if (totalBytesReceived < fileSize)
+                                                        if (!isServerRunning)
                                                         {
+                                                            // Server stopped, cancel the transfer
                                                             fs.Close();
                                                             File.Delete(savePath);
-                                                            // Transfer was interrupted
+                                                            // Notify sender that transfer was canceled
                                                             break;
                                                         }
-                                                        else
+
+                                                        int bytesToRead = (int)Math.Min(buffer.Length, fileSize - totalBytesReceived);
+                                                        int bytesRead = cryptoStream.Read(buffer, 0, bytesToRead);
+
+                                                        if (bytesRead == 0)
                                                         {
-                                                            // File reading completed
-                                                            break;
+                                                            // If no bytes are read before receiving the expected file size, it's a cancellation
+                                                            if (totalBytesReceived < fileSize)
+                                                            {
+                                                                fs.Close();
+                                                                File.Delete(savePath);
+                                                                // Transfer was interrupted
+                                                                break;
+                                                            }
+                                                            else
+                                                            {
+                                                                // File reading completed
+                                                                break;
+                                                            }
+                                                        }
+
+                                                        fs.Write(buffer, 0, bytesRead);
+                                                        totalBytesReceived += bytesRead;
+
+                                                        // Update the progress bar and speed
+                                                        double progressPercentage = (double)totalBytesReceived / fileSize * 1000000;
+                                                        progressBar.Invoke((MethodInvoker)(() =>
+                                                        {
+                                                            progressBar.Value = (int)Math.Min(progressPercentage, progressBar.Maximum);
+                                                        }));
+
+                                                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                                                        if (elapsedSeconds > 0)
+                                                        {
+                                                            double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
+                                                            lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
                                                         }
                                                     }
 
-                                                    fs.Write(buffer, 0, bytesRead);
-                                                    totalBytesReceived += bytesRead;
-
-                                                    // Update the progress bar and speed
-                                                    double progressPercentage = (double)totalBytesReceived / fileSize * 1000000;
-                                                    progressBar.Invoke((MethodInvoker)(() =>
+                                                    // Check if the transfer completed successfully
+                                                    if (totalBytesReceived == fileSize)
                                                     {
-                                                        progressBar.Value = (int)Math.Min(progressPercentage, progressBar.Maximum);
-                                                    }));
-
-                                                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                                                    if (elapsedSeconds > 0)
+                                                        receivedFiles.Add(savePath);
+                                                    }
+                                                    else
                                                     {
-                                                        double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
-                                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                                        // If the file was not fully received, it was canceled
+                                                        fs.Close();
+                                                        File.Delete(savePath);
+                                                        // Transfer was canceled
+                                                        break; // Exit the loop if a transfer was canceled
                                                     }
                                                 }
-
-                                                // Check if the transfer completed successfully
-                                                if (totalBytesReceived == fileSize)
+                                                finally
                                                 {
-                                                    receivedFiles.Add(savePath);
+                                                    // Reset progress bar regardless of how the transfer ended
+                                                    ResetProgressBar(progressBar, lblSpeed);
                                                 }
-                                                else
-                                                {
-                                                    // If the file was not fully received, it was canceled
-                                                    fs.Close();
-                                                    File.Delete(savePath);
-                                                    // Transfer was canceled
-                                                    break; // Exit the loop if a transfer was canceled
-                                                }
-
-                                                ResetProgressBar(progressBar, lblSpeed);
                                             }
                                         }
                                         catch (IOException ex)
                                         {
                                             Debug.WriteLine($"I/O error while receiving the file '{fileName}': {ex.Message}");
                                             MessageBox.Show($"Error receiving the file '{fileName}': {ex.Message}");
-                                            ResetProgressBar(progressBar, lblSpeed);
                                             continue;
                                         }
                                         catch (Exception ex)
                                         {
                                             Debug.WriteLine($"Error receiving the file '{fileName}': {ex.Message}");
                                             MessageBox.Show($"Error receiving the file '{fileName}': {ex.Message}");
-                                            ResetProgressBar(progressBar, lblSpeed);
                                             continue;
                                         }
                                     }
