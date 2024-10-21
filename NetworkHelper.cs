@@ -127,10 +127,11 @@ namespace UTransfer
                         aes.Key = key;
                         aes.IV = iv;
 
-                        try
+                        using (CryptoStream cryptoStream = new CryptoStream(networkStream, aes.CreateDecryptor(), CryptoStreamMode.Read))
                         {
-                            using (CryptoStream cryptoStream = new CryptoStream(networkStream, aes.CreateDecryptor(), CryptoStreamMode.Read))
+                            try
                             {
+                                // Wrap reading operations in a try-catch to handle incorrect passphrase
                                 // Read the number of files
                                 byte[] fileCountBytes = new byte[4];
                                 ReadExact(cryptoStream, fileCountBytes, 0, 4);
@@ -291,22 +292,12 @@ namespace UTransfer
                                     }
                                 }
                             }
-                        }
-                        catch (CryptographicException)
-                        {
-                            // Passphrase is incorrect; close the connection silently
-                            client.Close();
-                            return;
-                        }
-                        catch (IOException ex)
-                        {
-                            Debug.WriteLine($"I/O error during reception: {ex.Message}");
-                            MessageBox.Show($"Connection error while receiving files: {ex.Message}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Unknown error during reception: {ex.Message}");
-                            MessageBox.Show($"Unknown error while receiving files: {ex.Message}");
+                            catch (Exception ex) when (ex is CryptographicException || ex is IOException || ex is OverflowException || ex is ArgumentOutOfRangeException)
+                            {
+                                // Passphrase is incorrect or data is corrupted; close the connection silently
+                                client.Close();
+                                return;
+                            }
                         }
                     }
                 }
