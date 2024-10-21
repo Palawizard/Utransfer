@@ -18,14 +18,16 @@ namespace UTransfer
         private static Thread? serverThread;
         private static readonly byte[] buffer = new byte[1048576]; // Optimized buffer of 1 MB
         private static List<TcpClient> connectedClients = new List<TcpClient>(); // Tracking connected clients
+        private static string? serverPassphrase = null;
 
         // Starts the receiving server with an optimized buffer and a passphrase
-        public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed, string passphrase)
+        public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed, string? passphrase)
         {
             if (!isServerRunning)
             {
                 isServerRunning = true;
-                serverThread = new Thread(() => StartServer(progressBar, lblSpeed, passphrase));
+                serverPassphrase = passphrase; // Store the passphrase
+                serverThread = new Thread(() => StartServer(progressBar, lblSpeed));
                 serverThread.IsBackground = true;
                 serverThread.Priority = ThreadPriority.Highest; // Maximize performance
                 serverThread.Start();
@@ -38,7 +40,7 @@ namespace UTransfer
         }
 
         // Starts the server and handles incoming connections
-        private static void StartServer(ProgressBar progressBar, Label lblSpeed, string passphrase)
+        private static void StartServer(ProgressBar progressBar, Label lblSpeed)
         {
             try
             {
@@ -72,7 +74,7 @@ namespace UTransfer
                         connectedClients.Add(client);
                     }
 
-                    Thread clientThread = new Thread(() => ReceiveFiles(client, progressBar, lblSpeed, passphrase));
+                    Thread clientThread = new Thread(() => ReceiveFiles(client, progressBar, lblSpeed));
                     clientThread.IsBackground = true;
                     clientThread.Start();
                 }
@@ -100,7 +102,7 @@ namespace UTransfer
         }
 
         // Method to receive multiple files with an optimized buffer
-        private static void ReceiveFiles(TcpClient client, ProgressBar progressBar, Label lblSpeed, string passphrase)
+        private static void ReceiveFiles(TcpClient client, ProgressBar progressBar, Label lblSpeed)
         {
             try
             {
@@ -111,7 +113,14 @@ namespace UTransfer
                     ReadExact(networkStream, iv, 0, iv.Length);
 
                     // Derive the key from the passphrase
-                    byte[] key = DeriveKeyFromPassphrase(passphrase, iv);
+                    if (serverPassphrase == null)
+                    {
+                        // If passphrase is null, close the connection
+                        client.Close();
+                        return;
+                    }
+
+                    byte[] key = DeriveKeyFromPassphrase(serverPassphrase, iv);
 
                     using (Aes aes = Aes.Create())
                     {
@@ -195,8 +204,7 @@ namespace UTransfer
                                                         // Server stopped, cancel the transfer
                                                         fs.Close();
                                                         File.Delete(savePath);
-                                                        MessageBox.Show($"The transfer of the file '{fileName}' was canceled by the receiver.");
-                                                        ResetProgressBar(progressBar, lblSpeed);
+                                                        // Notify sender that transfer was canceled
                                                         break;
                                                     }
 
@@ -210,8 +218,7 @@ namespace UTransfer
                                                         {
                                                             fs.Close();
                                                             File.Delete(savePath);
-                                                            MessageBox.Show($"The transfer of the file '{fileName}' was interrupted.");
-                                                            ResetProgressBar(progressBar, lblSpeed);
+                                                            // Transfer was interrupted
                                                             break;
                                                         }
                                                         else
@@ -249,7 +256,7 @@ namespace UTransfer
                                                     // If the file was not fully received, it was canceled
                                                     fs.Close();
                                                     File.Delete(savePath);
-                                                    // The cancellation message has already been displayed
+                                                    // Transfer was canceled
                                                     break; // Exit the loop if a transfer was canceled
                                                 }
 
@@ -287,7 +294,9 @@ namespace UTransfer
                         }
                         catch (CryptographicException)
                         {
-                            MessageBox.Show("The passphrase is incorrect.");
+                            // Passphrase is incorrect; close the connection silently
+                            client.Close();
+                            return;
                         }
                         catch (IOException ex)
                         {
@@ -443,6 +452,7 @@ namespace UTransfer
                                                         try
                                                         {
                                                             cryptoStream.Write(buffer, 0, bytesRead);
+                                                            cryptoStream.Flush();
                                                         }
                                                         catch (IOException ex)
                                                         {
@@ -450,7 +460,7 @@ namespace UTransfer
                                                             if (ex.InnerException is SocketException socketEx &&
                                                                 (socketEx.SocketErrorCode == SocketError.ConnectionReset || socketEx.SocketErrorCode == SocketError.Shutdown))
                                                             {
-                                                                MessageBox.Show("The transfer was canceled by the receiver.");
+                                                                MessageBox.Show("The passphrase is incorrect.");
                                                             }
                                                             else
                                                             {
@@ -601,6 +611,7 @@ namespace UTransfer
             if (listener != null && isServerRunning)
             {
                 isServerRunning = false;
+                serverPassphrase = null; // Clear the passphrase
 
                 // Close the listener to unblock AcceptTcpClient
                 listener.Stop();
