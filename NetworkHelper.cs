@@ -295,6 +295,11 @@ namespace UTransfer
                                         MessageBox.Show("No files were received.");
                                     }
                                 }
+                                else
+                                {
+                                    // User declined to receive files; close the connection
+                                    client.Close();
+                                }
                             }
                             catch (Exception ex) when (ex is CryptographicException || ex is IOException || ex is OverflowException || ex is ArgumentOutOfRangeException)
                             {
@@ -339,6 +344,8 @@ namespace UTransfer
         {
             Thread sendThread = new Thread(() =>
             {
+                bool isMetadataSent = false; // Indicates whether metadata has been sent
+
                 try
                 {
                     Debug.WriteLine($"Attempting to connect to {ipAddress} to send files.");
@@ -396,6 +403,8 @@ namespace UTransfer
                                             cryptoStream.Write(fileNameBytes, 0, fileNameBytes.Length);
                                             cryptoStream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
                                         }
+
+                                        isMetadataSent = true; // Metadata has been successfully sent
 
                                         List<string> sentFiles = new List<string>();
 
@@ -455,7 +464,7 @@ namespace UTransfer
                                                             if (ex.InnerException is SocketException socketEx &&
                                                                 (socketEx.SocketErrorCode == SocketError.ConnectionReset || socketEx.SocketErrorCode == SocketError.Shutdown))
                                                             {
-                                                                MessageBox.Show("The passphrase is incorrect.");
+                                                                MessageBox.Show("The transfer was canceled by the receiver.");
                                                             }
                                                             else
                                                             {
@@ -518,8 +527,17 @@ namespace UTransfer
                                     }
                                     catch (IOException ex)
                                     {
-                                        Debug.WriteLine($"I/O error during sending: {ex.Message}");
-                                        MessageBox.Show($"I/O error while sending files: {ex.Message}");
+                                        // Handle exceptions during metadata sending
+                                        if (!isMetadataSent)
+                                        {
+                                            // Exception occurred while sending metadata
+                                            MessageBox.Show("The passphrase is incorrect.");
+                                        }
+                                        else
+                                        {
+                                            Debug.WriteLine($"I/O error during sending: {ex.Message}");
+                                            MessageBox.Show($"I/O error while sending files: {ex.Message}");
+                                        }
                                         ResetProgressBar(progressBar, lblSpeed);
                                     }
                                     catch (Exception ex)
@@ -540,10 +558,19 @@ namespace UTransfer
                 }
                 catch (IOException ex)
                 {
-                    Debug.WriteLine($"I/O error: {ex.Message}");
-                    if (!isCancelled())
+                    // Handle exceptions during connection or initial data exchange
+                    if (!isMetadataSent)
                     {
-                        MessageBox.Show($"Error sending files: {ex.Message}");
+                        // Exception occurred before sending metadata
+                        MessageBox.Show("The passphrase is incorrect.");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"I/O error: {ex.Message}");
+                        if (!isCancelled())
+                        {
+                            MessageBox.Show($"Error sending files: {ex.Message}");
+                        }
                     }
                     ResetProgressBar(progressBar, lblSpeed);
                 }
