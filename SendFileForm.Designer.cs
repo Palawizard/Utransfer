@@ -135,7 +135,7 @@
             this.cmbSavedContacts.TabIndex = 9;
             this.cmbSavedContacts.SelectedIndexChanged += new System.EventHandler(this.cmbSavedContacts_SelectedIndexChanged);
             // 
-            // lblSavedContacts
+            // lblSavedContacts²
             // 
             this.lblSavedContacts.AutoSize = true;
             this.lblSavedContacts.Location = new System.Drawing.Point(34, 159);

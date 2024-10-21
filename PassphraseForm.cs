@@ -31,5 +31,10 @@ namespace UTransfer
             DialogResult = DialogResult.Cancel;
             Close();
         }
+
+        private void lblPrompt_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }
