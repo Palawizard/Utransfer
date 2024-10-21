@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Text;
+using System.Security.Cryptography;
 
 namespace UTransfer
 {
@@ -15,50 +16,29 @@ namespace UTransfer
         private static TcpListener? listener;
         private static bool isServerRunning = false;
         private static Thread? serverThread;
-        private static readonly byte[] buffer = new byte[1048576]; // Optimized 1 MB buffer
-        private static List<TcpClient> connectedClients = new List<TcpClient>(); // Track connected clients
+        private static readonly byte[] buffer = new byte[1048576]; // Optimized buffer of 1 MB
+        private static List<TcpClient> connectedClients = new List<TcpClient>(); // Tracking connected clients
 
-        // Starts the receiving server with an optimized buffer
-        public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed)
+        // Starts the receiving server with an optimized buffer and a passphrase
+        public static void RunServerInThread(ProgressBar progressBar, Label lblSpeed, string passphrase)
         {
             if (!isServerRunning)
             {
                 isServerRunning = true;
-                serverThread = new Thread(() => StartServer(progressBar, lblSpeed));
+                serverThread = new Thread(() => StartServer(progressBar, lblSpeed, passphrase));
                 serverThread.IsBackground = true;
                 serverThread.Priority = ThreadPriority.Highest; // Maximize performance
                 serverThread.Start();
                 MessageBox.Show("Receiving server started.");
             }
-        }
-
-        // Stops the server and closes all connections properly
-        public static void StopServer()
-        {
-            if (listener != null && isServerRunning)
+            else
             {
-                isServerRunning = false;
-
-                // Close the listener to unblock AcceptTcpClient
-                listener.Stop();
-
-                // Close all connected clients
-                lock (connectedClients)
-                {
-                    foreach (var client in connectedClients)
-                    {
-                        client.Close();
-                    }
-                    connectedClients.Clear();
-                }
-
-                listener = null;
-                MessageBox.Show("The server has been stopped.");
+                MessageBox.Show("The server is already running.");
             }
         }
 
         // Starts the server and handles incoming connections
-        private static void StartServer(ProgressBar progressBar, Label lblSpeed)
+        private static void StartServer(ProgressBar progressBar, Label lblSpeed, string passphrase)
         {
             try
             {
@@ -82,6 +62,7 @@ namespace UTransfer
                         else
                         {
                             Debug.WriteLine($"Socket error: {ex.Message}");
+                            MessageBox.Show($"Socket error while accepting a connection: {ex.Message}");
                             continue;
                         }
                     }
@@ -91,19 +72,20 @@ namespace UTransfer
                         connectedClients.Add(client);
                     }
 
-                    Thread clientThread = new Thread(() => ReceiveFiles(client, progressBar, lblSpeed));
+                    Thread clientThread = new Thread(() => ReceiveFiles(client, progressBar, lblSpeed, passphrase));
                     clientThread.IsBackground = true;
                     clientThread.Start();
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error starting server: {ex.Message}");
+                Debug.WriteLine($"Error starting the server: {ex.Message}");
+                MessageBox.Show($"Error starting the server: {ex.Message}");
             }
         }
 
         // Helper method to read exactly 'size' bytes from the stream
-        private static void ReadExact(NetworkStream stream, byte[] buffer, int offset, int size)
+        private static void ReadExact(Stream stream, byte[] buffer, int offset, int size)
         {
             int totalBytesRead = 0;
             while (totalBytesRead < size)
@@ -118,156 +100,217 @@ namespace UTransfer
         }
 
         // Method to receive multiple files with an optimized buffer
-        private static void ReceiveFiles(TcpClient client, ProgressBar progressBar, Label lblSpeed)
+        private static void ReceiveFiles(TcpClient client, ProgressBar progressBar, Label lblSpeed, string passphrase)
         {
             try
             {
-                using (NetworkStream stream = client.GetStream())
+                using (NetworkStream networkStream = client.GetStream())
                 {
-                    // Read the number of files
-                    byte[] fileCountBytes = new byte[4];
-                    ReadExact(stream, fileCountBytes, 0, 4);
-                    int fileCount = BitConverter.ToInt32(fileCountBytes, 0);
+                    // Read the IV from the stream
+                    byte[] iv = new byte[16]; // AES block size is 16 bytes
+                    ReadExact(networkStream, iv, 0, iv.Length);
 
-                    // Read the filenames and sizes
-                    List<string> fileNames = new List<string>();
-                    List<long> fileSizes = new List<long>();
-                    for (int i = 0; i < fileCount; i++)
+                    // Derive the key from the passphrase
+                    byte[] key = DeriveKeyFromPassphrase(passphrase, iv);
+
+                    using (Aes aes = Aes.Create())
                     {
-                        // Read filename length
-                        byte[] fileNameLengthBytes = new byte[4];
-                        ReadExact(stream, fileNameLengthBytes, 0, 4);
-                        int fileNameLength = BitConverter.ToInt32(fileNameLengthBytes, 0);
+                        aes.Key = key;
+                        aes.IV = iv;
 
-                        // Read filename
-                        byte[] fileNameBytes = new byte[fileNameLength];
-                        ReadExact(stream, fileNameBytes, 0, fileNameLength);
-                        string fileName = Encoding.UTF8.GetString(fileNameBytes);
-
-                        // Read file size
-                        byte[] fileSizeBytes = new byte[8];
-                        ReadExact(stream, fileSizeBytes, 0, 8);
-                        long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
-
-                        fileNames.Add(fileName);
-                        fileSizes.Add(fileSize);
-                    }
-
-                    // Display a single confirmation dialog for all files
-                    string filesList = string.Join("\n", fileNames);
-                    if (MessageBox.Show($"Do you want to receive the following files?\n{filesList}", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
-                    {
-                        string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "received_files");
-                        Directory.CreateDirectory(saveFolderPath);
-
-                        List<string> receivedFiles = new List<string>();
-
-                        for (int i = 0; i < fileCount; i++)
+                        try
                         {
-                            if (!isServerRunning)
+                            using (CryptoStream cryptoStream = new CryptoStream(networkStream, aes.CreateDecryptor(), CryptoStreamMode.Read))
                             {
-                                // Server stopped, cancel the transfer
-                                break;
-                            }
+                                // Read the number of files
+                                byte[] fileCountBytes = new byte[4];
+                                ReadExact(cryptoStream, fileCountBytes, 0, 4);
+                                int fileCount = BitConverter.ToInt32(fileCountBytes, 0);
 
-                            string fileName = fileNames[i];
-                            long fileSize = fileSizes[i];
-
-                            // Get a unique file path to prevent overwriting existing files
-                            string savePath = GetUniqueFilePath(saveFolderPath, fileName);
-
-                            using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
-                            {
-                                long totalBytesReceived = 0;
-                                Stopwatch stopwatch = new Stopwatch();
-                                stopwatch.Start();
-
-                                progressBar.Invoke((MethodInvoker)(() =>
+                                // Read file names and their sizes
+                                List<string> fileNames = new List<string>();
+                                List<long> fileSizes = new List<long>();
+                                for (int i = 0; i < fileCount; i++)
                                 {
-                                    progressBar.Value = 0;
-                                    progressBar.Maximum = (int)Math.Max(fileSize, 1); // Ensure maximum is at least 1
-                                }));
+                                    // Read the length of the file name
+                                    byte[] fileNameLengthBytes = new byte[4];
+                                    ReadExact(cryptoStream, fileNameLengthBytes, 0, 4);
+                                    int fileNameLength = BitConverter.ToInt32(fileNameLengthBytes, 0);
 
-                                while (totalBytesReceived < fileSize)
+                                    // Read the file name
+                                    byte[] fileNameBytes = new byte[fileNameLength];
+                                    ReadExact(cryptoStream, fileNameBytes, 0, fileNameLength);
+                                    string fileName = Encoding.UTF8.GetString(fileNameBytes);
+
+                                    // Read the file size
+                                    byte[] fileSizeBytes = new byte[8];
+                                    ReadExact(cryptoStream, fileSizeBytes, 0, 8);
+                                    long fileSize = BitConverter.ToInt64(fileSizeBytes, 0);
+
+                                    fileNames.Add(fileName);
+                                    fileSizes.Add(fileSize);
+                                }
+
+                                // Display a single confirmation dialog for all files
+                                string filesList = string.Join("\n", fileNames);
+                                if (MessageBox.Show($"Do you want to receive the following files?\n{filesList}", "Confirmation", MessageBoxButtons.YesNo) == DialogResult.Yes)
                                 {
-                                    if (!isServerRunning)
-                                    {
-                                        // Server stopped, cancel the transfer
-                                        fs.Close();
-                                        File.Delete(savePath);
-                                        MessageBox.Show($"Transfer of file '{fileName}' was canceled by the receiver.");
-                                        ResetProgressBar(progressBar, lblSpeed);
-                                        break;
-                                    }
+                                    string saveFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "received_files");
+                                    Directory.CreateDirectory(saveFolderPath);
 
-                                    int bytesToRead = (int)Math.Min(buffer.Length, fileSize - totalBytesReceived);
-                                    int bytesRead = stream.Read(buffer, 0, bytesToRead);
+                                    List<string> receivedFiles = new List<string>();
 
-                                    if (bytesRead == 0)
+                                    for (int i = 0; i < fileCount; i++)
                                     {
-                                        // If no bytes are read before receiving the expected file size, it's a cancellation
-                                        if (totalBytesReceived < fileSize)
+                                        if (!isServerRunning)
                                         {
-                                            fs.Close();
-                                            File.Delete(savePath);
-                                            MessageBox.Show($"Transfer of file '{fileName}' was canceled by the sender.");
+                                            // Server stopped, cancel the transfer
+                                            break;
+                                        }
+
+                                        string fileName = fileNames[i];
+                                        long fileSize = fileSizes[i];
+
+                                        // Get a unique file path to avoid overwriting existing files
+                                        string savePath = GetUniqueFilePath(saveFolderPath, fileName);
+
+                                        try
+                                        {
+                                            using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
+                                            {
+                                                long totalBytesReceived = 0;
+                                                Stopwatch stopwatch = new Stopwatch();
+                                                stopwatch.Start();
+
+                                                progressBar.Invoke((MethodInvoker)(() =>
+                                                {
+                                                    progressBar.Value = 0;
+                                                    progressBar.Maximum = 1000000; // Fixed maximum for scaling
+                                                }));
+
+                                                while (totalBytesReceived < fileSize)
+                                                {
+                                                    if (!isServerRunning)
+                                                    {
+                                                        // Server stopped, cancel the transfer
+                                                        fs.Close();
+                                                        File.Delete(savePath);
+                                                        MessageBox.Show($"The transfer of the file '{fileName}' was canceled by the receiver.");
+                                                        ResetProgressBar(progressBar, lblSpeed);
+                                                        break;
+                                                    }
+
+                                                    int bytesToRead = (int)Math.Min(buffer.Length, fileSize - totalBytesReceived);
+                                                    int bytesRead = cryptoStream.Read(buffer, 0, bytesToRead);
+
+                                                    if (bytesRead == 0)
+                                                    {
+                                                        // If no bytes are read before receiving the expected file size, it's a cancellation
+                                                        if (totalBytesReceived < fileSize)
+                                                        {
+                                                            fs.Close();
+                                                            File.Delete(savePath);
+                                                            MessageBox.Show($"The transfer of the file '{fileName}' was interrupted.");
+                                                            ResetProgressBar(progressBar, lblSpeed);
+                                                            break;
+                                                        }
+                                                        else
+                                                        {
+                                                            // File reading completed
+                                                            break;
+                                                        }
+                                                    }
+
+                                                    fs.Write(buffer, 0, bytesRead);
+                                                    totalBytesReceived += bytesRead;
+
+                                                    // Update the progress bar and speed
+                                                    double progressPercentage = (double)totalBytesReceived / fileSize * 1000000;
+                                                    progressBar.Invoke((MethodInvoker)(() =>
+                                                    {
+                                                        progressBar.Value = (int)Math.Min(progressPercentage, progressBar.Maximum);
+                                                    }));
+
+                                                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                                                    if (elapsedSeconds > 0)
+                                                    {
+                                                        double speed = (totalBytesReceived / 1024.0 / 1024.0) / elapsedSeconds;
+                                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                                    }
+                                                }
+
+                                                // Check if the transfer completed successfully
+                                                if (totalBytesReceived == fileSize)
+                                                {
+                                                    receivedFiles.Add(savePath);
+                                                }
+                                                else
+                                                {
+                                                    // If the file was not fully received, it was canceled
+                                                    fs.Close();
+                                                    File.Delete(savePath);
+                                                    // The cancellation message has already been displayed
+                                                    break; // Exit the loop if a transfer was canceled
+                                                }
+
+                                                ResetProgressBar(progressBar, lblSpeed);
+                                            }
+                                        }
+                                        catch (IOException ex)
+                                        {
+                                            Debug.WriteLine($"I/O error while receiving the file '{fileName}': {ex.Message}");
+                                            MessageBox.Show($"Error receiving the file '{fileName}': {ex.Message}");
                                             ResetProgressBar(progressBar, lblSpeed);
-                                            break;
+                                            continue;
                                         }
-                                        else
+                                        catch (Exception ex)
                                         {
-                                            // Finished reading the file
-                                            break;
+                                            Debug.WriteLine($"Error receiving the file '{fileName}': {ex.Message}");
+                                            MessageBox.Show($"Error receiving the file '{fileName}': {ex.Message}");
+                                            ResetProgressBar(progressBar, lblSpeed);
+                                            continue;
                                         }
                                     }
 
-                                    fs.Write(buffer, 0, bytesRead);
-                                    totalBytesReceived += bytesRead;
-
-                                    // Update progress bar and speed
-                                    long bytesReceivedCopy = totalBytesReceived;
-                                    progressBar.Invoke((MethodInvoker)(() =>
+                                    // Display a summary message of the received files
+                                    if (receivedFiles.Count > 0)
                                     {
-                                        progressBar.Value = (int)Math.Min(bytesReceivedCopy, progressBar.Maximum);
-                                    }));
-                                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                                    if (elapsedSeconds > 0)
+                                        string receivedFilesList = string.Join("\n", receivedFiles);
+                                        MessageBox.Show($"Files received:\n{receivedFilesList}");
+                                    }
+                                    else
                                     {
-                                        double speed = (bytesReceivedCopy / 1024.0 / 1024.0) / elapsedSeconds;
-                                        lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                        MessageBox.Show("No files were received.");
                                     }
                                 }
-
-                                // Check if the transfer completed successfully
-                                if (totalBytesReceived == fileSize)
-                                {
-                                    receivedFiles.Add(savePath);
-                                }
-                                else
-                                {
-                                    // If the file was not fully received, it was canceled
-                                    fs.Close();
-                                    File.Delete(savePath);
-                                    // Cancellation message has already been displayed
-                                    break; // Exit the loop if a transfer was canceled
-                                }
-
-                                ResetProgressBar(progressBar, lblSpeed);
                             }
                         }
-
-                        // Display a summary message of the received files
-                        if (receivedFiles.Count > 0)
+                        catch (CryptographicException)
                         {
-                            string receivedFilesList = string.Join("\n", receivedFiles);
-                            MessageBox.Show($"Files received:\n{receivedFilesList}");
+                            MessageBox.Show("The passphrase is incorrect.");
                         }
-                        else
+                        catch (IOException ex)
                         {
-                            MessageBox.Show("No files were received.");
+                            Debug.WriteLine($"I/O error during reception: {ex.Message}");
+                            MessageBox.Show($"Connection error while receiving files: {ex.Message}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Unknown error during reception: {ex.Message}");
+                            MessageBox.Show($"Unknown error while receiving files: {ex.Message}");
                         }
                     }
                 }
+            }
+            catch (SocketException ex)
+            {
+                Debug.WriteLine($"Socket error while receiving files: {ex.Message}");
+                MessageBox.Show($"Socket error: {ex.Message}");
+            }
+            catch (IOException ex)
+            {
+                Debug.WriteLine($"I/O error while receiving files: {ex.Message}");
+                MessageBox.Show($"I/O error while receiving files: {ex.Message}");
             }
             catch (Exception ex)
             {
@@ -288,7 +331,7 @@ namespace UTransfer
         }
 
         // Method to send multiple files sequentially with metadata sent at the beginning
-        public static void SendFiles(string ipAddress, List<string> filePaths, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled)
+        public static void SendFiles(string ipAddress, List<string> filePaths, ProgressBar progressBar, Label lblSpeed, Func<bool> isCancelled, string passphrase)
         {
             Thread sendThread = new Thread(() =>
             {
@@ -302,130 +345,185 @@ namespace UTransfer
                         client.SendBufferSize = buffer.Length;
                         client.Connect(ipAddress, 5001);
 
-                        using (NetworkStream stream = client.GetStream())
+                        using (NetworkStream networkStream = client.GetStream())
                         {
-                            // Send the number of files
-                            int fileCount = filePaths.Count;
-                            byte[] fileCountBytes = BitConverter.GetBytes(fileCount);
-                            stream.Write(fileCountBytes, 0, fileCountBytes.Length);
+                            // Generate a random IV
+                            byte[] iv = new byte[16]; // AES block size is 16 bytes
+                            RandomNumberGenerator.Fill(iv);
 
-                            // Send filenames and their sizes
-                            foreach (string filePath in filePaths)
+                            // Send the IV to the receiver
+                            networkStream.Write(iv, 0, iv.Length);
+
+                            // Derive the key from the passphrase
+                            byte[] key = DeriveKeyFromPassphrase(passphrase, iv);
+
+                            using (Aes aes = Aes.Create())
                             {
-                                if (!File.Exists(filePath))
+                                aes.Key = key;
+                                aes.IV = iv;
+
+                                using (CryptoStream cryptoStream = new CryptoStream(networkStream, aes.CreateEncryptor(), CryptoStreamMode.Write))
                                 {
-                                    MessageBox.Show($"The file {filePath} does not exist.");
-                                    continue;
-                                }
-
-                                string fileName = Path.GetFileName(filePath);
-                                byte[] fileNameBytes = Encoding.UTF8.GetBytes(fileName);
-                                int fileNameLength = fileNameBytes.Length;
-                                byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
-                                long fileSize = new FileInfo(filePath).Length;
-                                byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
-
-                                // Send the filename length, name, and file size
-                                stream.Write(fileNameLengthBytes, 0, fileNameLengthBytes.Length);
-                                stream.Write(fileNameBytes, 0, fileNameBytes.Length);
-                                stream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
-                            }
-
-                            List<string> sentFiles = new List<string>();
-
-                            foreach (string filePath in filePaths)
-                            {
-                                if (isCancelled())
-                                {
-                                    MessageBox.Show("Sending canceled.");
-                                    break;
-                                }
-
-                                if (!File.Exists(filePath))
-                                {
-                                    continue; // The file doesn't exist, skip to the next one
-                                }
-
-                                string fileName = Path.GetFileName(filePath);
-                                long fileSize = new FileInfo(filePath).Length;
-
-                                using (FileStream fs = File.OpenRead(filePath))
-                                {
-                                    int bytesRead;
-                                    long totalBytesSent = 0;
-                                    Stopwatch stopwatch = new Stopwatch();
-                                    stopwatch.Start();
-
-                                    // Update the progress bar before sending
-                                    progressBar.Invoke((MethodInvoker)(() =>
+                                    try
                                     {
-                                        progressBar.Value = 0;
-                                        progressBar.Maximum = (int)Math.Max(fileSize, 1); // Ensure maximum is at least 1
-                                    }));
+                                        // Send the number of files
+                                        int fileCount = filePaths.Count;
+                                        byte[] fileCountBytes = BitConverter.GetBytes(fileCount);
+                                        cryptoStream.Write(fileCountBytes, 0, fileCountBytes.Length);
 
-                                    // Send the file
-                                    while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
-                                    {
-                                        if (isCancelled())
+                                        // Send file names and their sizes
+                                        foreach (string filePath in filePaths)
                                         {
-                                            // Notify cancellation and close the connection
-                                            MessageBox.Show("Sending canceled.");
-                                            stream.Close();  // Close the stream properly
-                                            client.Close();  // Close the client connection
-                                            ResetProgressBar(progressBar, lblSpeed);
-                                            return;
-                                        }
-
-                                        try
-                                        {
-                                            stream.Write(buffer, 0, bytesRead);
-                                        }
-                                        catch (IOException ex)
-                                        {
-                                            // Check if the exception is due to the receiver closing the connection
-                                            if (ex.InnerException is SocketException socketEx &&
-                                                (socketEx.SocketErrorCode == SocketError.ConnectionReset || socketEx.SocketErrorCode == SocketError.Shutdown))
+                                            if (!File.Exists(filePath))
                                             {
-                                                MessageBox.Show("The transfer was canceled by the receiver.");
+                                                MessageBox.Show($"The file {filePath} does not exist.");
+                                                continue;
                                             }
-                                            else
+
+                                            string fileName = Path.GetFileName(filePath);
+                                            byte[] fileNameBytes = Encoding.UTF8.GetBytes(fileName);
+                                            int fileNameLength = fileNameBytes.Length;
+                                            byte[] fileNameLengthBytes = BitConverter.GetBytes(fileNameLength);
+                                            long fileSize = new FileInfo(filePath).Length;
+                                            byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
+
+                                            // Send the file name length, name, and size
+                                            cryptoStream.Write(fileNameLengthBytes, 0, fileNameLengthBytes.Length);
+                                            cryptoStream.Write(fileNameBytes, 0, fileNameBytes.Length);
+                                            cryptoStream.Write(fileSizeBytes, 0, fileSizeBytes.Length);
+                                        }
+
+                                        List<string> sentFiles = new List<string>();
+
+                                        foreach (string filePath in filePaths)
+                                        {
+                                            if (isCancelled())
                                             {
                                                 MessageBox.Show("Sending canceled.");
+                                                break;
                                             }
-                                            ResetProgressBar(progressBar, lblSpeed);
-                                            return;
+
+                                            if (!File.Exists(filePath))
+                                            {
+                                                continue; // The file does not exist, skip to the next
+                                            }
+
+                                            string fileName = Path.GetFileName(filePath);
+                                            long fileSize = new FileInfo(filePath).Length;
+
+                                            try
+                                            {
+                                                using (FileStream fs = File.OpenRead(filePath))
+                                                {
+                                                    int bytesRead;
+                                                    long totalBytesSent = 0;
+                                                    Stopwatch stopwatch = new Stopwatch();
+                                                    stopwatch.Start();
+
+                                                    // Update the progress bar before sending
+                                                    progressBar.Invoke((MethodInvoker)(() =>
+                                                    {
+                                                        progressBar.Value = 0;
+                                                        progressBar.Maximum = 1000000; // Fixed maximum for scaling
+                                                    }));
+
+                                                    // Send the file
+                                                    while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
+                                                    {
+                                                        if (isCancelled())
+                                                        {
+                                                            // Notify cancellation and close the connection
+                                                            MessageBox.Show("Sending canceled.");
+                                                            cryptoStream.Close();  // Properly close the cryptoStream
+                                                            client.Close();  // Close the client connection
+                                                            ResetProgressBar(progressBar, lblSpeed);
+                                                            return;
+                                                        }
+
+                                                        try
+                                                        {
+                                                            cryptoStream.Write(buffer, 0, bytesRead);
+                                                        }
+                                                        catch (IOException ex)
+                                                        {
+                                                            // Check if the exception is due to the receiver closing the connection
+                                                            if (ex.InnerException is SocketException socketEx &&
+                                                                (socketEx.SocketErrorCode == SocketError.ConnectionReset || socketEx.SocketErrorCode == SocketError.Shutdown))
+                                                            {
+                                                                MessageBox.Show("The transfer was canceled by the receiver.");
+                                                            }
+                                                            else
+                                                            {
+                                                                MessageBox.Show($"Error sending data: {ex.Message}");
+                                                            }
+                                                            ResetProgressBar(progressBar, lblSpeed);
+                                                            return;
+                                                        }
+
+                                                        totalBytesSent += bytesRead;
+
+                                                        // Update the progress bar and speed
+                                                        double progressPercentage = (double)totalBytesSent / fileSize * 1000000;
+                                                        progressBar.Invoke((MethodInvoker)(() =>
+                                                        {
+                                                            progressBar.Value = (int)Math.Min(progressPercentage, progressBar.Maximum);
+                                                        }));
+
+                                                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                                                        if (elapsedSeconds > 0)
+                                                        {
+                                                            double speed = (totalBytesSent / 1024.0 / 1024.0) / elapsedSeconds; // Speed in MB/s
+                                                            lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                                        }
+                                                    }
+
+                                                    sentFiles.Add(filePath);
+                                                    ResetProgressBar(progressBar, lblSpeed);
+                                                }
+                                            }
+                                            catch (IOException ex)
+                                            {
+                                                Debug.WriteLine($"I/O error while sending the file '{fileName}': {ex.Message}");
+                                                MessageBox.Show($"Error sending the file '{fileName}': {ex.Message}");
+                                                ResetProgressBar(progressBar, lblSpeed);
+                                                continue;
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Debug.WriteLine($"Error sending the file '{fileName}': {ex.Message}");
+                                                MessageBox.Show($"Error sending the file '{fileName}': {ex.Message}");
+                                                ResetProgressBar(progressBar, lblSpeed);
+                                                continue;
+                                            }
                                         }
 
-                                        totalBytesSent += bytesRead;
+                                        // Ensure all data is flushed and encrypted properly
+                                        cryptoStream.FlushFinalBlock();
 
-                                        // Update progress bar and speed
-                                        long bytesSentCopy = totalBytesSent;
-                                        progressBar.Invoke((MethodInvoker)(() =>
+                                        // Display a summary message of the sent files
+                                        if (sentFiles.Count > 0)
                                         {
-                                            progressBar.Value = (int)Math.Min(bytesSentCopy, progressBar.Maximum);
-                                        }));
-                                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                                        if (elapsedSeconds > 0)
+                                            string sentFilesList = string.Join("\n", sentFiles);
+                                            MessageBox.Show($"Files sent successfully:\n{sentFilesList}");
+                                        }
+                                        else
                                         {
-                                            double speed = (bytesSentCopy / 1024.0 / 1024.0) / elapsedSeconds; // Speed in MB/s
-                                            lblSpeed.Invoke((MethodInvoker)(() => lblSpeed.Text = $"Speed: {speed:F2} MB/s"));
+                                            MessageBox.Show("No files were sent.");
                                         }
                                     }
-
-                                    sentFiles.Add(filePath);
-                                    ResetProgressBar(progressBar, lblSpeed);
+                                    catch (IOException ex)
+                                    {
+                                        Debug.WriteLine($"I/O error during sending: {ex.Message}");
+                                        MessageBox.Show($"I/O error while sending files: {ex.Message}");
+                                        ResetProgressBar(progressBar, lblSpeed);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Debug.WriteLine($"Unknown error during sending: {ex.Message}");
+                                        MessageBox.Show($"Unknown error while sending files: {ex.Message}");
+                                        ResetProgressBar(progressBar, lblSpeed);
+                                    }
                                 }
-                            }
-
-                            // Display a summary message of the sent files
-                            if (sentFiles.Count > 0)
-                            {
-                                string sentFilesList = string.Join("\n", sentFiles);
-                                MessageBox.Show($"Files sent successfully:\n{sentFilesList}");
-                            }
-                            else
-                            {
-                                MessageBox.Show("No files were sent.");
                             }
                         }
                     }
@@ -433,7 +531,7 @@ namespace UTransfer
                 catch (SocketException ex)
                 {
                     Debug.WriteLine($"Socket error: {ex.Message}");
-                    MessageBox.Show("Error connecting to the server. Ensure the server is online.");
+                    MessageBox.Show($"Connection error to the server: {ex.Message}");
                 }
                 catch (IOException ex)
                 {
@@ -486,5 +584,44 @@ namespace UTransfer
 
             return filePath;
         }
+
+        // Derives a key from the passphrase using PBKDF2
+        private static byte[] DeriveKeyFromPassphrase(string passphrase, byte[] salt)
+        {
+            // Use SHA256 as the hash algorithm and 100,000 iterations
+            using (var keyDerivationFunction = new Rfc2898DeriveBytes(passphrase, salt, 100000, HashAlgorithmName.SHA256))
+            {
+                return keyDerivationFunction.GetBytes(32); // 256-bit key for AES-256
+            }
+        }
+
+        // Stops the server and properly closes all connections
+        public static void StopServer()
+        {
+            if (listener != null && isServerRunning)
+            {
+                isServerRunning = false;
+
+                // Close the listener to unblock AcceptTcpClient
+                listener.Stop();
+
+                // Close all connected clients
+                lock (connectedClients)
+                {
+                    foreach (var client in connectedClients)
+                    {
+                        client.Close();
+                    }
+                    connectedClients.Clear();
+                }
+
+                listener = null;
+                MessageBox.Show("The server has been stopped.");
+            }
+            else
+            {
+                MessageBox.Show("The server is not running.");
+            }
+        }
     }
-} //for comm
+}
