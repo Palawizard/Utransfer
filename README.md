@@ -12,6 +12,8 @@ UTransfer is a fast file transfer application designed to send and receive large
 - Support for multiple file transfers.
 - Automatic file renaming to prevent overwriting existing files.
 - Ability to stop the receiving server during active transfers.
+- Save IP addresses associated with usernames for easier reconnection.
+- Load saved contacts and autofill the IP address field using saved usernames.
 
 ## Requirements
 - Operating System: **Windows 10 or later**
@@ -30,6 +32,7 @@ UTransfer is a fast file transfer application designed to send and receive large
 2. **Sending Files**:
    - Click on the "Send" button in the main interface.
    - Enter the recipient's IP address (through Hamachi or an open port).
+   - You can save the IP for later use by entering a username and checking "Save for later."
    - Select one or multiple files from your system via the file explorer.
    - Click "Send" and monitor the progress using the loading bar.
 
@@ -44,11 +47,11 @@ UTransfer is a fast file transfer application designed to send and receive large
    - If canceled by the sender, any partially received files will be automatically deleted.
 
 ## Known Issues
-- **No significant known issues at this time.**
+- When the receiver cancels, the sender receives the message "the passphrase is incorrect" instead of "canceled"
 - Users are encouraged to report any bugs or issues to help us improve UTransfer.
 
 ## Upcoming Features
-- Going to add something to tell the user that **the server is up**
+- Going to add something to tell the user that **the server is up**.
 - **Continuous support and maintenance** to ensure reliability.
 - **Exploration of new features** based on user feedback.
 
