@@ -1,5 +1,9 @@
 # UTransfer
 
+<p align="center">
+  <img src="Assets/app-icon.svg" alt="UTransfer icon" width="128">
+</p>
+
 ## Description
 UTransfer is a fast file transfer application designed to send and receive large files between computers that are geographically distant. This is achieved by using **Hamachi** or by manually **opening port 5001** for direct connections.
 
