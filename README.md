@@ -7,7 +7,7 @@
 ## Description
 UTransfer is a fast file transfer application designed to send and receive large files between computers that are geographically distant. This is achieved by using **Hamachi** or by manually **opening port 5001** for direct connections.
 
-## Main Features
+## Main features
 - Send and receive files between computers over the internet using Hamachi or port forwarding.
 - Progress tracking with a loading bar.
 - Real-time speed display (in MB/s).
@@ -28,7 +28,7 @@ UTransfer is a fast file transfer application designed to send and receive large
 2. Ensure the .NET Framework is installed.
 3. Run the application using the provided executable.
 
-## Usage Instructions
+## Usage instructions
 1. **Using Hamachi or Opening Port 5001**:
    - The app is designed specifically to work over long-distance connections, not just local networks.
    - Use **Hamachi** to create a virtual LAN, or **open port 5001** on your network to allow direct file transfers.
@@ -50,19 +50,19 @@ UTransfer is a fast file transfer application designed to send and receive large
    - A transfer can be canceled at any time by either the sender or the recipient.
    - If canceled by the sender, any partially received files will be automatically deleted.
 
-## Known Issues
+## Known issues
 - When the receiver cancels, the sender receives the message "the passphrase is incorrect" instead of "canceled"
 - Users are encouraged to report any bugs or issues to help us improve UTransfer.
 
-## Upcoming Features
+## Upcoming features
 - Going to add something to tell the user that **the server is up**.
 - **Continuous support and maintenance** to ensure reliability.
 - **Exploration of new features** based on user feedback.
 
 ## Authors
-- **Palawi**: C# migration and development of all post-migration features.
-- **Statix**: Original idea, initial Python version development, general support.
-- **Aliz**: Emotional support.
+- Palawi: C# migration and development of all post-migration features.
+- Statix: Original idea, initial Python version development, general support.
+- Aliz: Emotional support.
 
 ## Contact
 For any questions, suggestions, or bug reports, please contact: **palawi.pro@gmail.com**
